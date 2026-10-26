@@ -69,6 +69,62 @@ test('notes function uses its server key for Supabase without returning it', asy
   }
 });
 
+test('notes function logs only safe diagnostics for Supabase failures', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SECRET_KEY;
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const testKey = 'server-secret-sentinel';
+  const privateMessage = 'private-message-header-query-sentinel';
+  const logEntries = [];
+  const results = [];
+  process.env.SUPABASE_URL = 'https://unit-test.supabase.co';
+  process.env.SUPABASE_SECRET_KEY = testKey;
+  console.error = (...args) => logEntries.push(args);
+  try {
+    const { default: handler } = await import('../api/notes.js');
+    const invoke = async () => {
+      let statusCode;
+      let body;
+      await handler({ method: 'GET' }, {
+        setHeader: () => {},
+        status: value => { statusCode = value; return { json: value => { body = value; } }; },
+      });
+      results.push({ statusCode, body });
+    };
+
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      code: '42501', message: privateMessage, details: privateMessage, hint: privateMessage,
+    }), { status: 403, headers: { 'content-type': 'application/json' } });
+    await invoke();
+
+    process.env.SUPABASE_URL = 'not-a-valid-url';
+    await invoke();
+
+    assert.deepEqual(results, [
+      { statusCode: 502, body: { error: 'NOTES_UNAVAILABLE' } },
+      { statusCode: 502, body: { error: 'NOTES_UNAVAILABLE' } },
+    ]);
+    assert.deepEqual(logEntries, [
+      ['Supabase notes query failed', { code: '42501', status: 403 }],
+      ['Supabase notes query failed', { code: 'UNKNOWN', status: null }],
+    ]);
+    const output = JSON.stringify({ results, logEntries });
+    assert.equal(output.includes(testKey), false);
+    assert.equal(output.includes(privateMessage), false);
+    assert.equal(output.includes('unit-test.supabase.co'), false);
+    assert.equal(output.includes('not-a-valid-url'), false);
+    assert.equal(output.includes('/rest/v1/learning_notes'), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = previousKey;
+  }
+});
+
 test('attack check reads the public notes API without credentials', async () => {
   const originalFetch = globalThis.fetch;
   let requestUrl;

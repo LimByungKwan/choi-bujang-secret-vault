@@ -1,5 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
+function logSupabaseFailure(error, status) {
+  const code = typeof error?.code === 'string' && /^[A-Za-z0-9_-]{1,32}$/u.test(error.code)
+    ? error.code
+    : 'UNKNOWN';
+  const httpStatus = Number.isInteger(error?.status) ? error.status : status;
+  console.error('Supabase notes query failed', {
+    code,
+    status: Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599 ? httpStatus : null,
+  });
+}
+
 export default async function handler(request, response) {
   response.setHeader('Cache-Control', 'no-store');
   if (request.method !== 'GET') {
@@ -17,13 +28,17 @@ export default async function handler(request, response) {
     const supabase = createClient(supabaseUrl, secretKey, {
       auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
     });
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from('learning_notes')
       .select('title,content')
       .order('created_at', { ascending: true });
-    if (error) return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
+    if (error) {
+      logSupabaseFailure(error, status);
+      return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
+    }
     return response.status(200).json({ notes: data });
-  } catch {
+  } catch (error) {
+    logSupabaseFailure(error);
     return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
   }
 }
