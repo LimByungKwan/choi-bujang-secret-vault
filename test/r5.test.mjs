@@ -4,10 +4,16 @@ import { deploymentIdentity } from '../scripts/deployment-identity.mjs';
 import { runAttackChecks } from '../src/attack-check.mjs';
 
 const config = {
-  step: 2,
+  step: 3,
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
   sampleMarker: 'SAMPLE_NOTE_1',
   publicAppUrl: 'https://student-defense.vercel.app',
+  identityProvider: {
+    issuer: 'https://student.supabase.co/auth/v1',
+    jwksUrl: 'https://student.supabase.co/auth/v1/.well-known/jwks.json',
+    audience: 'authenticated',
+  },
+  allowedRoutes: ['/api/notes'],
 };
 const env = {
   VERCEL_GIT_PROVIDER: 'github',
@@ -20,46 +26,86 @@ const env = {
 test('build identity uses Vercel Git and deployment metadata', () => {
   assert.deepEqual(deploymentIdentity(env, config), {
     schema: 'aleph.defense.deployment.v1',
-    step: 2,
+    step: 3,
     repoUrl: 'https://github.com/student-a/aleph-defense',
     commit: 'a'.repeat(40),
     publicAppUrl: 'https://student-defense-123.vercel.app',
     judgeIssuer: config.judgeIssuer,
     sampleMarker: config.sampleMarker,
   });
-  assert.equal(deploymentIdentity(env, { ...config, step: 3 }).step, 3);
+  assert.equal(deploymentIdentity(env, { ...config, step: 2 }).step, 2);
   assert.throws(() => deploymentIdentity({ ...env, VERCEL_GIT_PROVIDER: undefined }, config));
   assert.throws(() => deploymentIdentity({ ...env, VERCEL_GIT_COMMIT_SHA: 'short' }, config));
 });
 
-test('notes function uses its server key for Supabase without returning it', async () => {
+test('notes API rejects invalid identities and accepts verified student identities', async () => {
   const previousUrl = process.env.SUPABASE_URL;
   const previousKey = process.env.SUPABASE_SECRET_KEY;
   const originalFetch = globalThis.fetch;
   const testKey = 'not-a-real-key';
-  const headers = new Map();
-  let statusCode;
-  let body;
+  let databaseRequests = 0;
+  const results = [];
   process.env.SUPABASE_URL = 'https://unit-test.supabase.co';
   process.env.SUPABASE_SECRET_KEY = testKey;
   try {
     globalThis.fetch = async (url, init) => {
+      databaseRequests += 1;
       assert.match(String(url), /\/rest\/v1\/learning_notes/u);
       assert.equal(new Headers(init?.headers).get('apikey'), testKey);
-      return new Response(JSON.stringify([{ title: '가상', content: '가상 본문' }]), {
+      return new Response(JSON.stringify([{
+        id: '20000000-0000-4000-8000-000000000001',
+        title: '가상',
+        content: '가상 본문',
+      }]), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     };
-    const { default: handler } = await import('../api/notes.js');
-    await handler({ method: 'GET' }, {
-      setHeader: (name, value) => headers.set(name.toLowerCase(), value),
-      status: value => { statusCode = value; return { json: value => { body = value; } }; },
+    const { createNotesHandler } = await import('../api/notes.js');
+    const handler = createNotesHandler({
+      createVerifier: ({ config: verifierConfig, supabaseSecretKey }) => {
+        assert.equal(verifierConfig.identityProvider.audience, 'authenticated');
+        assert.equal(supabaseSecretKey, testKey);
+        return async authorization => {
+          if (authorization === 'Bearer valid-student-token') return { kind: 'student', userId: 'student-id' };
+          if (authorization === 'Bearer verified-judge-token') return { kind: 'judge', userId: 'judge-id' };
+          return null;
+        };
+      },
     });
-    assert.equal(statusCode, 200);
-    assert.equal(headers.get('cache-control'), 'no-store');
-    assert.deepEqual(body, { notes: [{ title: '가상', content: '가상 본문' }] });
-    assert.equal(JSON.stringify(body).includes(testKey), false);
+    const invoke = async authorization => {
+      let statusCode;
+      let body;
+      const headers = new Map();
+      await handler({ method: 'GET', headers: authorization ? { authorization } : {} }, {
+        setHeader: (name, value) => headers.set(name.toLowerCase(), value),
+        status: value => { statusCode = value; return { json: value => { body = value; } }; },
+      });
+      results.push({ statusCode, body, cacheControl: headers.get('cache-control') });
+    };
+    await invoke(undefined);
+    await invoke('Bearer invalid-student-token');
+    await invoke('Bearer verified-judge-token');
+    await invoke('Bearer valid-student-token');
+
+    assert.deepEqual(results, [
+      { statusCode: 401, body: { error: 'UNAUTHORIZED' }, cacheControl: 'no-store' },
+      { statusCode: 401, body: { error: 'UNAUTHORIZED' }, cacheControl: 'no-store' },
+      { statusCode: 403, body: { error: 'FORBIDDEN' }, cacheControl: 'no-store' },
+      {
+        statusCode: 200,
+        body: {
+          notes: [{
+            id: '20000000-0000-4000-8000-000000000001',
+            title: '가상',
+            body: '가상 본문',
+          }],
+        },
+        cacheControl: 'no-store',
+      },
+    ]);
+    assert.equal(databaseRequests, 1);
+    assert.equal(JSON.stringify(results).includes(testKey), false);
   } finally {
     globalThis.fetch = originalFetch;
     if (previousUrl === undefined) delete process.env.SUPABASE_URL;
@@ -82,11 +128,16 @@ test('notes function logs only safe diagnostics for Supabase failures', async ()
   process.env.SUPABASE_SECRET_KEY = testKey;
   console.error = (...args) => logEntries.push(args);
   try {
-    const { default: handler } = await import('../api/notes.js');
+    const { createNotesHandler } = await import('../api/notes.js');
+    const handler = createNotesHandler({
+      createVerifier: () => async authorization => authorization === 'Bearer valid-student-token'
+        ? { kind: 'student', userId: 'student-id' }
+        : null,
+    });
     const invoke = async () => {
       let statusCode;
       let body;
-      await handler({ method: 'GET' }, {
+      await handler({ method: 'GET', headers: { authorization: 'Bearer valid-student-token' } }, {
         setHeader: () => {},
         status: value => { statusCode = value; return { json: value => { body = value; } }; },
       });
