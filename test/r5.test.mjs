@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import alephConfig from '../aleph.config.json' with { type: 'json' };
 import { deploymentIdentity } from '../scripts/deployment-identity.mjs';
 import { runAttackChecks } from '../src/attack-check.mjs';
 
 const config = {
-  step: 3,
+  step: 4,
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
   sampleMarker: 'SAMPLE_NOTE_1',
   publicAppUrl: 'https://student-defense.vercel.app',
@@ -23,10 +24,20 @@ const env = {
   VERCEL_URL: 'student-defense-123.vercel.app',
 };
 
+test('allowedRoutes lists each notes API method and path', () => {
+  assert.deepEqual(alephConfig.allowedRoutes, [
+    'GET /api/notes',
+    'POST /api/notes',
+    'GET /api/notes/[id]',
+    'PUT /api/notes/[id]',
+    'DELETE /api/notes/[id]',
+  ]);
+});
+
 test('build identity uses Vercel Git and deployment metadata', () => {
   assert.deepEqual(deploymentIdentity(env, config), {
     schema: 'aleph.defense.deployment.v1',
-    step: 3,
+    step: 4,
     repoUrl: 'https://github.com/student-a/aleph-defense',
     commit: 'a'.repeat(40),
     publicAppUrl: 'https://student-defense-123.vercel.app',
@@ -51,9 +62,11 @@ test('notes API rejects invalid identities and accepts verified student identiti
     globalThis.fetch = async (url, init) => {
       databaseRequests += 1;
       assert.match(String(url), /\/rest\/v1\/learning_notes/u);
+      assert.equal(new URL(url).searchParams.get('owner_id'), 'eq.student-id');
       assert.equal(new Headers(init?.headers).get('apikey'), testKey);
       return new Response(JSON.stringify([{
         id: '20000000-0000-4000-8000-000000000001',
+        owner_id: 'student-id',
         title: '가상',
         content: '가상 본문',
       }]), {

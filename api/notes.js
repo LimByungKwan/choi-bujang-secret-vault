@@ -95,6 +95,7 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
         const { data, error, status } = await supabase
           .from('learning_notes')
           .select('id,title,content')
+          .eq('owner_id', identity.userId)
           .order('created_at', { ascending: true });
         if (error) {
           logSupabaseFailure(error, status);
@@ -112,6 +113,7 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
           .from('learning_notes')
           .select('id,title,content')
           .eq('id', route.id)
+          .eq('owner_id', identity.userId)
           .maybeSingle();
         if (error) {
           logSupabaseFailure(error, status);
@@ -157,6 +159,7 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
           .from('learning_notes')
           .update({ title: request.body.title, content: request.body.body })
           .eq('id', route.id)
+          .eq('owner_id', identity.userId)
           .select('id,title,content')
           .maybeSingle();
         if (error) {
@@ -171,6 +174,7 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
         .from('learning_notes')
         .delete()
         .eq('id', route.id)
+        .eq('owner_id', identity.userId)
         .select('id')
         .maybeSingle();
       if (error) {
