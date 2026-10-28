@@ -1,9 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
+import { readCookie, validateCookieRequest } from '../src/auth-session.mjs';
 import { createLoginVerifier } from '../src/verify-login.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const ACCESS_COOKIE = '__Secure-aleph_access';
+
+function requestHeader(request, name) {
+  if (typeof request.headers?.get === 'function') return request.headers.get(name);
+  return request.headers?.[name.toLowerCase()] ?? request.headers?.[name] ?? null;
+}
 
 function logSupabaseFailure(error, status) {
   const code = typeof error?.code === 'string' && /^[A-Za-z0-9_-]{1,32}$/u.test(error.code)
@@ -49,8 +56,14 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
   return async function handler(request, response) {
     response.setHeader('Cache-Control', 'no-store');
 
-    if (!request.headers?.authorization) {
+    const authorization = requestHeader(request, 'authorization');
+    const accessToken = authorization ? null : readCookie(request, ACCESS_COOKIE);
+    if (!authorization && !accessToken) {
       return response.status(401).json({ error: 'UNAUTHORIZED' });
+    }
+    if (!authorization) {
+      const csrfError = validateCookieRequest(request, config);
+      if (csrfError) return response.status(403).json({ error: csrfError });
     }
 
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -62,7 +75,7 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
     let identity;
     try {
       loginVerifier ??= createVerifier({ config, supabaseSecretKey: secretKey });
-      identity = await loginVerifier(request.headers.authorization);
+      identity = await loginVerifier(authorization ?? `Bearer ${accessToken}`);
     } catch (error) {
       logSupabaseFailure(error);
       return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });

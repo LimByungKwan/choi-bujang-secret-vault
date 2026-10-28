@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-public.mjs",
-    "test": "node --test test/r5.test.mjs test/notes-crud.test.mjs test/package-starter.test.mjs",
+    "test": "node --test test/r5.test.mjs test/notes-crud.test.mjs test/auth.test.mjs test/package-starter.test.mjs",
     "test:r5": "node --test test/r5.test.mjs",
     "test:package": "node --test test/package-starter.test.mjs",
     "bundle": "node scripts/bundle.mjs",

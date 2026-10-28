@@ -212,3 +212,81 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
     else process.env.SUPABASE_SECRET_KEY = previousKey;
   }
 });
+
+test('notes API accepts cookie sessions only with matching origin and CSRF token', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SECRET_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.SUPABASE_URL = 'https://unit-test.supabase.co';
+  process.env.SUPABASE_SECRET_KEY = 'test-secret-placeholder';
+  let databaseRequests = 0;
+  globalThis.fetch = async input => {
+    databaseRequests += 1;
+    const url = new URL(input);
+    assert.equal(url.pathname, '/rest/v1/learning_notes');
+    assert.equal(url.searchParams.get('owner_id'), `eq.${userA}`);
+    return new Response(JSON.stringify([{
+      id: noteA,
+      owner_id: userA,
+      title: '기존 A 메모',
+      content: '가상 테스트 자료',
+    }]), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const { createNotesHandler } = await import('../api/notes.js');
+    const handler = createNotesHandler({
+      createVerifier: () => async authorization => (
+        authorization === 'Bearer cookie-session-access'
+          ? { kind: 'student', userId: userA }
+          : null
+      ),
+    });
+    const invoke = async headers => {
+      let statusCode;
+      let body;
+      const responseHeaders = new Map();
+      await handler({ method: 'GET', headers }, {
+        setHeader: (name, value) => responseHeaders.set(name.toLowerCase(), value),
+        status: value => {
+          statusCode = value;
+          return { json: valueBody => { body = valueBody; } };
+        },
+      });
+      return { statusCode, body, headers: responseHeaders };
+    };
+
+    const csrfToken = 'b'.repeat(64);
+    const cookie = `__Secure-aleph_access=cookie-session-access; __Secure-aleph_csrf=${csrfToken}`;
+    const rejected = await invoke({
+      cookie,
+      origin: 'https://attacker.example',
+      'x-csrf-token': csrfToken,
+    });
+    assert.equal(rejected.statusCode, 403);
+    assert.equal(databaseRequests, 0);
+
+    const accepted = await invoke({
+      cookie,
+      origin: 'https://choi-bujang-secret-vault-iota-three.vercel.app',
+      'x-csrf-token': csrfToken,
+    });
+    assert.equal(accepted.statusCode, 200);
+    assert.deepEqual(accepted.body.notes, [{
+      id: noteA,
+      title: '기존 A 메모',
+      body: '가상 테스트 자료',
+    }]);
+    assert.equal(accepted.headers.get('cache-control'), 'no-store');
+    assert.equal(databaseRequests, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = previousKey;
+  }
+});
