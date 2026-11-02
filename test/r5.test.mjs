@@ -24,14 +24,19 @@ const env = {
   VERCEL_URL: 'student-defense-123.vercel.app',
 };
 
-test('allowedRoutes lists each notes API method and path', () => {
+test('step 8 allowedRoutes contains reads allowed by the local resource policy only', () => {
+  assert.equal(alephConfig.step, 8);
   assert.deepEqual(alephConfig.allowedRoutes, [
-    'GET /api/notes',
-    'POST /api/notes',
-    'GET /api/notes/[id]',
-    'PUT /api/notes/[id]',
-    'DELETE /api/notes/[id]',
+    'GET /api/notes/:id',
+    'GET /api/announcements',
+    'GET /api/announcements/:id',
   ]);
+  assert.ok(alephConfig.allowedRoutes.every(route => route.startsWith('GET ')));
+  assert.equal(alephConfig.allowedRoutes.some(route => route === 'GET /api/notes'), false);
+  assert.ok(!alephConfig.allowedRoutes.some(route => route.startsWith('POST /api/notes')));
+  assert.ok(!alephConfig.allowedRoutes.some(route => route.startsWith('PUT /api/notes')));
+  assert.ok(!alephConfig.allowedRoutes.some(route => route.startsWith('DELETE /api/notes')));
+  assert.ok(!alephConfig.allowedRoutes.some(route => route.includes('instructor')));
 });
 
 test('build identity uses Vercel Git and deployment metadata', () => {
@@ -110,6 +115,7 @@ test('notes API rejects invalid identities and accepts verified student identiti
         body: {
           notes: [{
             id: '20000000-0000-4000-8000-000000000001',
+            resourceId: 'note:20000000-0000-4000-8000-000000000001',
             title: '가상',
             body: '가상 본문',
           }],

@@ -1,10 +1,26 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { createResourceId, parseResourceId, RESOURCE_TYPES } from '../src/resource-id.mjs';
 
 const userA = '30000000-0000-4000-8000-000000000001';
 const userB = '30000000-0000-4000-8000-000000000002';
 const noteA = '20000000-0000-4000-8000-000000000001';
 const noteB = '50000000-0000-4000-8000-000000000001';
+
+test('resource IDs identify resource type without changing native UUIDs', () => {
+  assert.deepEqual(RESOURCE_TYPES, ['note', 'class-announcement', 'instructor-material']);
+  for (const type of RESOURCE_TYPES) {
+    const resourceId = createResourceId(type, noteA);
+    assert.equal(resourceId, `${type}:${noteA}`);
+    assert.deepEqual(parseResourceId(resourceId), { type, id: noteA });
+  }
+  assert.equal(parseResourceId(`unknown:${noteA}`), null);
+  assert.equal(parseResourceId('note:not-a-uuid'), null);
+  assert.throws(() => createResourceId('unknown', noteA), {
+    name: 'TypeError',
+    message: 'invalid_resource_type',
+  });
+});
 
 test('notes API enforces verified ownership for every CRUD operation', async () => {
   const previousUrl = process.env.SUPABASE_URL;
@@ -90,14 +106,14 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
       },
     });
 
-    const invoke = async ({ method, user, id, body } = {}) => {
+    const invoke = async ({ method, user, id, body, path, query } = {}) => {
       let statusCode;
       let responseBody;
       const headers = new Map();
       await handler({
         method,
-        url: id ? `/api/notes/${id}` : '/api/notes',
-        query: id ? { id } : {},
+        url: path ?? (id ? `/api/notes/${id}` : '/api/notes'),
+        query: query ?? (id ? { id } : {}),
         headers: user ? { authorization: `Bearer test-user-${user}` } : {},
         body,
       }, {
@@ -119,11 +135,13 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
     assert.equal(listA.statusCode, 200);
     assert.equal(listA.body.notes.length, 4);
     assert.ok(listA.body.notes.every(note => note.id !== noteB));
+    assert.ok(listA.body.notes.every(note => note.resourceId === `note:${note.id}`));
 
     const listB = await invoke({ method: 'GET', user: 'b' });
     assert.equal(listB.statusCode, 200);
     assert.deepEqual(listB.body.notes, [{
       id: noteB,
+      resourceId: `note:${noteB}`,
       title: 'B 계정 테스트 메모',
       body: '소유권 검증용 가상 자료',
     }]);
@@ -139,9 +157,13 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
           body: '가상 테스트 내용',
           owner_id: spoofedOwner,
           user_id: spoofedOwner,
+          userId: spoofedOwner,
+          role: 'admin',
+          isAdmin: true,
         },
       });
       assert.equal(created.statusCode, 201);
+      assert.equal(created.body.resourceId, `note:${created.body.id}`);
       const createdRow = notes.find(note => note.id === created.body.id);
       assert.equal(createdRow.owner_id, expectedOwner);
 
@@ -149,6 +171,7 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
       assert.equal(read.statusCode, 200);
       assert.deepEqual(read.body, {
         id: created.body.id,
+        resourceId: `note:${created.body.id}`,
         title: `${user.toUpperCase()} 새 메모`,
         body: '가상 테스트 내용',
       });
@@ -162,11 +185,15 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
           body: '수정된 가상 테스트 내용',
           owner_id: spoofedOwner,
           user_id: spoofedOwner,
+          userId: spoofedOwner,
+          role: 'admin',
+          isAdmin: true,
         },
       });
       assert.equal(updated.statusCode, 200);
       assert.deepEqual(updated.body, {
         id: created.body.id,
+        resourceId: `note:${created.body.id}`,
         title: `${user.toUpperCase()} 수정 메모`,
         body: '수정된 가상 테스트 내용',
       });
@@ -174,7 +201,10 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
 
       const removed = await invoke({ method: 'DELETE', user, id: created.body.id });
       assert.equal(removed.statusCode, 200);
-      assert.deepEqual(removed.body, { id: created.body.id });
+      assert.deepEqual(removed.body, {
+        id: created.body.id,
+        resourceId: `note:${created.body.id}`,
+      });
     }
 
     for (const [user, otherNote] of [['a', noteB], ['b', noteA]]) {
@@ -204,6 +234,64 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
         .includes(url.searchParams.get('owner_id'))));
     assert.ok(databaseCalls.filter(({ method }) => method === 'PATCH' || method === 'DELETE')
       .every(({ url }) => url.searchParams.has('id') && url.searchParams.has('owner_id')));
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SECRET_KEY;
+    else process.env.SUPABASE_SECRET_KEY = previousKey;
+  }
+});
+
+test('notes API rejects unsupported resource and management routes before database access', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SECRET_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.SUPABASE_URL = 'https://unit-test.supabase.co';
+  process.env.SUPABASE_SECRET_KEY = 'test-secret-placeholder';
+  let databaseRequests = 0;
+  globalThis.fetch = async () => {
+    databaseRequests += 1;
+    return new Response('[]', { status: 200 });
+  };
+
+  try {
+    const { createNotesHandler } = await import('../api/notes.js');
+    const invoke = async (handler, headers = {}) => {
+      let statusCode;
+      let body;
+      await handler({
+        method: 'GET',
+        url: '/api/notes/admin/users',
+        headers,
+      }, {
+        setHeader: () => {},
+        status: value => {
+          statusCode = value;
+          return { json: responseBody => { body = responseBody; } };
+        },
+      });
+      return { statusCode, body };
+    };
+
+    const unauthenticatedHandler = createNotesHandler({
+      createVerifier: () => async () => null,
+    });
+    assert.deepEqual(await invoke(unauthenticatedHandler), {
+      statusCode: 401,
+      body: { error: 'UNAUTHORIZED' },
+    });
+
+    const nonStudentHandler = createNotesHandler({
+      createVerifier: () => async () => ({ kind: 'judge', userId: userA }),
+    });
+    assert.deepEqual(await invoke(nonStudentHandler, {
+      authorization: 'Bearer test-placeholder',
+    }), {
+      statusCode: 403,
+      body: { error: 'FORBIDDEN' },
+    });
+    assert.equal(databaseRequests, 0);
   } finally {
     globalThis.fetch = originalFetch;
     if (previousUrl === undefined) delete process.env.SUPABASE_URL;
@@ -277,6 +365,7 @@ test('notes API accepts cookie sessions only with matching origin and CSRF token
     assert.equal(accepted.statusCode, 200);
     assert.deepEqual(accepted.body.notes, [{
       id: noteA,
+      resourceId: `note:${noteA}`,
       title: '기존 A 메모',
       body: '가상 테스트 자료',
     }]);

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
 import { readCookie, validateCookieRequest } from '../src/auth-session.mjs';
+import { createResourceId } from '../src/resource-id.mjs';
 import { createLoginVerifier } from '../src/verify-login.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -26,13 +27,15 @@ function logSupabaseFailure(error, status) {
 }
 
 function noteIdFromRequest(request) {
-  if (request.query && Object.hasOwn(request.query, 'id')) {
+  const pathname = new URL(request.url ?? '/api/notes', 'http://localhost').pathname;
+  const isCollectionPath = pathname === '/api/notes' || pathname === '/api/notes/';
+  const match = /^\/api\/notes\/([^/]+)\/?$/u.exec(pathname);
+  if (!isCollectionPath && !match) return { single: false, unsupported: true };
+
+  if (isCollectionPath && request.query && Object.hasOwn(request.query, 'id')) {
     return { single: true, id: Array.isArray(request.query.id) ? null : request.query.id };
   }
-
-  const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
-  const match = /^\/api\/notes\/([^/]+)\/?$/u.exec(pathname);
-  if (!match) return { single: false };
+  if (!match) return { single: false, unsupported: false };
 
   try {
     return { single: true, id: decodeURIComponent(match[1]) };
@@ -47,7 +50,12 @@ function validNoteInput(body) {
 }
 
 function presentNote(note) {
-  return { id: note.id, title: note.title, body: note.content };
+  return {
+    id: note.id,
+    resourceId: createResourceId('note', note.id),
+    title: note.title,
+    body: note.content,
+  };
 }
 
 export function createNotesHandler({ createVerifier = createLoginVerifier } = {}) {
@@ -88,6 +96,9 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
     }
 
     const route = noteIdFromRequest(request);
+    if (route.unsupported) {
+      return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
+    }
     const allowedMethods = route.single
       ? ['GET', 'PUT', 'DELETE']
       : ['GET', 'POST'];
@@ -161,7 +172,7 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
           logSupabaseFailure(null, status);
           return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
         }
-        return response.status(201).json({ id });
+        return response.status(201).json({ id, resourceId: createResourceId('note', id) });
       }
 
       if (request.method === 'PUT') {
@@ -195,7 +206,10 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
         return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
       }
       if (!data) return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
-      return response.status(200).json({ id: data.id });
+      return response.status(200).json({
+        id: data.id,
+        resourceId: createResourceId('note', data.id),
+      });
     } catch (error) {
       logSupabaseFailure(error);
       return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
