@@ -387,3 +387,25 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 - 서버 설정 준비 항목: `NOTE_BACKUP_BUCKET`, `NOTE_BACKUP_TRUSTED_PUBLIC_KEYS_JSON` 및 기존 서버 전용 Supabase 설정. 실제 값은 승인된 서버 설정 화면에서만 입력하고 코드나 로그에 복사하지 않습니다.
 - Supabase migration 적용, private bucket·정책 생성, 운영 공개키 등록, 실제 메모 백업/복구, Vercel 배포 및 심판 검증은 아직 수행하지 않았습니다. 이번 구현의 가짜 DB/Storage 테스트는 PostgreSQL 또는 운영 환경 통합 검증이 아닙니다.
 - 제출 전 장애 요소: 공식 심판 요청 계약 확인, 실제 DB 권한·RLS 검토, migration 검증·승인, private Storage 권한 설정, 신뢰 공개키 공급·회전 계획, B 메모 백업의 별도 승인과 검증, 실제 환경 회귀·복구 시험.
+
+### 최종 정리 진행 기록
+
+현재 확정 가능한 상태와 검증 순서입니다. 아래 로컬 결과는 심판 판정이나 실제 B 메모 복원 결과가 아닙니다.
+
+1. **공식 제작 1 — 로컬 정책 스냅샷:** `npm.cmd run policy:test`에서 10/10 PASS. 기준 정책 사본 해시, 시험 사본 변조 diff, 누락·변조 시 중단, 원본 및 백업 보존을 격리 테스트로 확인했습니다.
+2. **공식 제작 2 — 시험 정책 복원:** 같은 10개 테스트에서 preview/승인값 확인, 승인 누락·오류·미리보기 후 변경 거부, 격리 사본의 단일 파일 복원과 다른 파일 보존을 확인했습니다. 실제 운영 정책은 변경하지 않았습니다.
+3. **공식 제작 3 — B 가상 메모 백업/복원:** Store, Reader, 서명, private Storage adapter와 내부 `POST /api/notes/restore`의 합성 데이터 테스트가 있습니다. 가짜 DB/Storage에서 ID·owner·콘텐츠 해시 검증 및 다른 소유자 충돌 거부를 확인하지만, **운영 B 메모 백업·POST 복원은 미실행**입니다. 실제 백업이 없어 원본 변경·삭제는 금지 상태입니다.
+4. **공식 제작 4 — 회귀 기록:** 다음 순서로 로컬 검증했습니다.
+   - `npm.cmd run decider:test`: 4개 가상 요청 통과.
+   - `npm.cmd run detect:test`: 6개 가상 사건 통과.
+   - `npm.cmd run policy:test`: 10/10 통과.
+   - `npm.cmd test`: 299개 전체 자동 테스트 통과.
+   - `npm.cmd run build -- --local`: 성공. 운영 배포나 실제 API 요청은 검증하지 않습니다.
+   - 새 임시 clone에서 `npm.cmd install`: 성공, npm audit 취약점 0건. 이어 `npm.cmd test` 299/299 및 local build 성공.
+   - `npm.cmd run bundle`: 미완료. 제출 금지된 미커밋 변경을 감지해 첫 안전 검사에서 종료했고, 운영 API 자기 점검은 호출하지 않았으며 제출 JSON도 생성하지 않았습니다.
+
+복구 내부 경로는 `POST /api/notes/restore`입니다. 이는 프로젝트가 정한 내부 구현이며 **심판의 route·호출자·JSON 계약으로 확인되지 않았습니다**. `aleph.config.json`의 `restoreRoute: null`과 기존 `allowedRoutes`는 보존합니다. 공식 심판 자료에서 계약을 확인하기 전에는 심판이 이 경로를 호출한다고 가정하거나 설정을 바꾸지 마세요.
+
+복구 대상 ID는 이 README, 소스, 테스트 fixture, 터미널 기록, Git, 제출 묶음 또는 채팅에 쓰지 않습니다. 권한 있는 계정에서 확인한 뒤 학원이 승인한 암호화 비밀 저장소에만 임시 보관하고, 요청 시 명령행 인자나 환경변수 대신 승인된 비밀 입력 경로를 사용하세요. 작업 후 임시 기록을 폐기하고 B 메모의 ID·제목·본문을 로그에 남기지 마세요.
+
+**미완료:** 운영 Ed25519 개인키·신뢰 공개키 설정, 실제 B 백업 생성 및 무결성 확인, Supabase migration 적용 전 검토, restore endpoint의 실제 DB 통합 확인, 공식 심판 route/schema 확인, 실제 환경에서의 승인된 복구 검증은 모두 미실행입니다. 실제 테스트를 하지 않은 항목을 통과로 기록하지 않습니다.
