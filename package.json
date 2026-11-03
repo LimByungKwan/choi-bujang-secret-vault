@@ -4,12 +4,15 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-public.mjs",
-    "test": "node --test test/r5.test.mjs test/notes-crud.test.mjs test/auth.test.mjs test/package-starter.test.mjs",
+    "test": "node --test",
     "test:r5": "node --test test/r5.test.mjs",
     "test:package": "node --test test/package-starter.test.mjs",
     "bundle": "node scripts/bundle.mjs",
     "decider:test": "node scripts/decider-test.mjs",
     "detect:test": "node scripts/detect-test.mjs",
+    "policy:test": "node --test test/policy-snapshot.test.mjs",
+    "policy:backup": "node scripts/policy-snapshot.mjs backup",
+    "policy:simulate": "node scripts/policy-snapshot.mjs simulate",
     "fixture:7": "node scripts/fixture-7.mjs",
     "xdr:run": "node scripts/xdr-run.mjs"
   },

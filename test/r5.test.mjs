@@ -24,8 +24,8 @@ const env = {
   VERCEL_URL: 'student-defense-123.vercel.app',
 };
 
-test('step 8 allowedRoutes contains reads allowed by the local resource policy only', () => {
-  assert.equal(alephConfig.step, 8);
+test('allowedRoutes contains reads allowed by the local resource policy only', () => {
+  assert.equal(alephConfig.step, 10);
   assert.deepEqual(alephConfig.allowedRoutes, [
     'GET /api/notes/:id',
     'GET /api/announcements',
