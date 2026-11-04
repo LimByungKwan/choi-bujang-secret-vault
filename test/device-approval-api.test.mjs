@@ -215,6 +215,87 @@ test('WebAuthn registration proof is stored as pending, not implicitly approved'
   assert.equal(harness.credentials[0].public_key, Buffer.from('public-key').toString('base64url'));
 });
 
+test('registration-options diagnostics identify failing stage without logging error details', async t => {
+  const scenarios = [
+    {
+      name: 'credential query',
+      expected: { stage: 'credentials_query', code: '42501', status: 403 },
+      createSupabase: () => ({
+        from() {
+          return {
+            select() { return this; },
+            eq() {
+              return Promise.resolve({
+                data: null,
+                error: { code: '42501', status: 403, message: 'private error detail' },
+              });
+            },
+          };
+        },
+      }),
+    },
+    {
+      name: 'WebAuthn option generation',
+      expected: { stage: 'webauthn_options', code: 'WEBAUTHN_OPTIONS_FAILED', status: null },
+      createSupabase: () => ({
+        from() {
+          return {
+            select() { return this; },
+            eq() { return Promise.resolve({ data: [], error: null }); },
+          };
+        },
+      }),
+      makeRegistrationOptions: async () => {
+        throw new Error('private error detail');
+      },
+    },
+    {
+      name: 'challenge RPC',
+      expected: { stage: 'challenge_rpc', code: '42501', status: 403 },
+      createSupabase: () => ({
+        from() {
+          return {
+            select() { return this; },
+            eq() { return Promise.resolve({ data: [], error: null }); },
+          };
+        },
+        async rpc() {
+          return {
+            data: null,
+            error: { code: '42501', status: 403, message: 'private error detail' },
+          };
+        },
+      }),
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    await t.test(scenario.name, async () => {
+      const diagnostics = [];
+      const handler = createDeviceApprovalHandler({
+        env: {
+          SUPABASE_URL: 'https://unit-test.supabase.co',
+          SUPABASE_SECRET_KEY: 'test-secret-placeholder',
+        },
+        createVerifier: () => async () => ({ kind: 'student', userId }),
+        createSupabase: scenario.createSupabase,
+        makeRegistrationOptions: scenario.makeRegistrationOptions
+          ?? (async () => ({ challenge: 'registration-challenge' })),
+        logDiagnostic: (...entry) => diagnostics.push(entry),
+      });
+
+      const response = await invoke(handler, 'registration-options');
+
+      assert.equal(response.statusCode, 503);
+      assert.deepEqual(diagnostics, [[
+        'Device registration options failed',
+        scenario.expected,
+      ]]);
+      assert.equal(JSON.stringify(diagnostics).includes('private error detail'), false);
+    });
+  }
+});
+
 test('cookie-authenticated device requests still require same-origin CSRF validation', async () => {
   let verifierCalls = 0;
   const handler = createDeviceApprovalHandler({

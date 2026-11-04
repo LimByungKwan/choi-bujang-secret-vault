@@ -42,6 +42,20 @@ function serviceClient(env, createSupabase = createClient) {
   });
 }
 
+function safeDiagnosticCode(error, fallback) {
+  const code = error?.diagnosticCode ?? error?.code;
+  return typeof code === 'string' && /^[A-Za-z0-9_-]{1,32}$/u.test(code)
+    ? code
+    : fallback;
+}
+
+function unavailableError(diagnosticCode, status = null) {
+  const error = new Error('DEVICE_APPROVAL_UNAVAILABLE');
+  error.diagnosticCode = diagnosticCode;
+  error.status = Number.isInteger(status) ? status : null;
+  return error;
+}
+
 function adminIds(env) {
   const value = env.DEVICE_APPROVAL_ADMIN_USER_IDS;
   if (typeof value !== 'string' || value.length === 0) return [];
@@ -82,9 +96,13 @@ async function issueChallenge(supabase, ownerId, purpose, challenge, binding = n
     p_body_sha256: binding?.bodySha256 ?? null,
     p_body_present: binding?.bodyPresent ?? null,
   });
-  if (error || !UUID_V4.test(data ?? '')) {
-    throw new Error('DEVICE_APPROVAL_UNAVAILABLE');
+  if (error) {
+    throw unavailableError(
+      safeDiagnosticCode(error, 'CHALLENGE_RPC_FAILED'),
+      error.status,
+    );
   }
+  if (!UUID_V4.test(data ?? '')) throw unavailableError('INVALID_CHALLENGE_RPC_RESULT');
   return data;
 }
 
@@ -211,6 +229,7 @@ export function createDeviceApprovalHandler({
   makeAuthenticationOptions = generateAuthenticationOptions,
   verifyAssertionResponse = verifyAuthenticationResponse,
   createSupabase = createClient,
+  logDiagnostic = console.error,
 } = {}) {
   let loginVerifier;
   return async function handler(request, response) {
@@ -242,23 +261,47 @@ export function createDeviceApprovalHandler({
       }
 
       if (action === 'registration-options') {
-        const { data: existing, error: existingError } = await supabase
-          .from('device_approval_credentials').select('credential_id')
-          .eq('owner_id', identity.userId);
-        if (existingError) throw new Error('DEVICE_APPROVAL_UNAVAILABLE');
-        const options = await makeRegistrationOptions({
-          rpName: 'BYTE BACK 자료실',
-          rpID: RP_ID,
-          userID: Buffer.from(identity.userId),
-          userName: identity.userId,
-          attestationType: 'none',
-          excludeCredentials: (existing ?? []).map(item => ({ id: item.credential_id })),
-          authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
-        });
-        const id = await issueChallenge(
-          supabase, identity.userId, 'registration', options.challenge,
-        );
-        return send(response, 200, { challengeId: id, options });
+        let stage = 'credentials_query';
+        try {
+          const { data: existing, error: existingError } = await supabase
+            .from('device_approval_credentials').select('credential_id')
+            .eq('owner_id', identity.userId);
+          if (existingError) {
+            throw unavailableError(
+              safeDiagnosticCode(existingError, 'CREDENTIALS_QUERY_FAILED'),
+              existingError.status,
+            );
+          }
+
+          stage = 'webauthn_options';
+          const options = await makeRegistrationOptions({
+            rpName: 'BYTE BACK 자료실',
+            rpID: RP_ID,
+            userID: Buffer.from(identity.userId),
+            userName: identity.userId,
+            attestationType: 'none',
+            excludeCredentials: (existing ?? []).map(item => ({ id: item.credential_id })),
+            authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
+          });
+
+          stage = 'challenge_rpc';
+          const id = await issueChallenge(
+            supabase, identity.userId, 'registration', options.challenge,
+          );
+          return send(response, 200, { challengeId: id, options });
+        } catch (error) {
+          const fallbackCodes = {
+            credentials_query: 'CREDENTIALS_QUERY_FAILED',
+            webauthn_options: 'WEBAUTHN_OPTIONS_FAILED',
+            challenge_rpc: 'CHALLENGE_RPC_FAILED',
+          };
+          logDiagnostic('Device registration options failed', {
+            stage,
+            code: safeDiagnosticCode(error, fallbackCodes[stage]),
+            status: Number.isInteger(error?.status) ? error.status : null,
+          });
+          throw error;
+        }
       }
 
       if (action === 'registration-verify') {
