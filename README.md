@@ -1,4 +1,4 @@
-# BYTE BACK 방어전 R5 11단계 자료실
+# BYTE BACK 방어전 R5 12단계 자료실
 
 이 저장소는 Supabase Auth 인증과 메모 CRUD를 Vercel 서버 함수 뒤에서 처리하고, 6단계 기기 등록 및 7단계 가상 위험 기반 접근 정책을 구현한 R5 프로젝트입니다. 브라우저 정적 파일에는 Supabase SDK와 공개 키가 없으며, 실제 학생 자료, 토큰, 비밀키를 코드나 브라우저 파일에 넣지 마세요.
 
@@ -446,3 +446,38 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 검증: 자동 테스트는 WebAuthn 검증기를 모의해 등록 대기, 승인·거부·회수, 오류 시 거부, 인증 없이 메모 API 직접 호출 차단, 기존 인증·CSRF·A/B 소유권·복구 회귀를 확인합니다. 이 결과는 실제 인증기·운영 DB·공식 심판 판정을 뜻하지 않습니다.
 
 로컬 `npm test` 실행 결과: 346/346 통과, 실패 0. 운영 등록·승인은 직접 확인했고, 심판 판정은 **미확인**입니다.
+
+## 12단계 · 탈환 작전실
+
+이 절은 12단계 저장점 커밋 기준이며, 직전 운영 배포 `cfdf221`에서 실측했습니다.
+
+### 출처와 책임 구분
+
+| 구분 | 범위 |
+| --- | --- |
+| 제공 엔진 | ALEPH SDP 엔진(운영 측 제공). 심판 접수(`judgeIssuer`), 운영 반 탐지 사건 전달과 접속 회수 집행은 제공 엔진의 몫이며 이 저장소에서 구현하거나 시험하지 않았습니다. |
+| 학생 작업 | 판정기 [src/decider.mjs](./src/decider.mjs)(`RULE_IDS` 3종), 탐지 규칙 [src/detect.mjs](./src/detect.mjs)(가상 사건 연습, 운영 미연결), 접속 앱([api/](./api/), [public/](./public/): 로그인·CSRF·소유권·기기 승인·요청 결합 서명·작전실), 자료실(Supabase `learning_notes`, 복구 함수, 마이그레이션). |
+
+### 작전실
+
+`GET /api/ops/summary`는 관리자 허용목록만 허용하는 읽기 전용 API입니다. 판정기 규칙(코드 기준), 탐지(미연결), 기기 상태 건수(실측), 복구 결과 건수(실측)를 보여 줍니다. 복구 건수는 `learning_note_restore_audit_summary` 함수로 건수만 조회합니다. 영역별 조회 실패는 `확인 실패`로 표시합니다. 메모 본문·UID·credential은 응답하지 않습니다.
+
+### 운영에서 발견한 문제
+
+처음 배포에서 503이 발생했습니다. 원인은 감사 테이블에 SELECT 권한이 없었던 것(`has_table_privilege` 결과 `false`)입니다. 10단계의 INSERT 전용 설계를 유지하기 위해 테이블 권한은 바꾸지 않고, 건수만 돌려주는 `SECURITY DEFINER` 함수(`service_role`만 실행 가능)를 추가했습니다. 자동 테스트는 모의 DB를 사용하므로 이 문제를 찾지 못했고, 운영 실측으로 발견했습니다.
+
+### 재현 순서
+
+1. 설치: `npm install`
+2. 시험: `npm test` (모의 DB·모의 WebAuthn 사용, 운영 확인 아님)
+3. 자기 점검: `npm run attack:table` (운영에 비로그인 요청만 보냄)
+4. 실행(배포): `main`에 push하면 Vercel이 배포합니다. 필요한 환경변수 이름은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DEVICE_APPROVAL_ADMIN_USER_IDS`입니다. 값은 Vercel 설정 화면에만 입력하고 저장소에 넣지 않습니다.
+5. DB 준비: [supabase/migrations/](./supabase/migrations/)의 SQL을 파일 이름 순서대로 적용합니다.
+6. 중지: Vercel 프로젝트를 일시 중지(Pause)하거나 직전 배포로 롤백합니다.
+7. 복구: 문제 배포는 Vercel에서 직전 READY 배포로 롤백합니다. 복구 감사 요약 함수는 `DROP FUNCTION public.learning_note_restore_audit_summary();`로 되돌립니다(데이터 영향 없음). 메모 복구는 10단계 절차(`POST /api/notes/restore`)를 따릅니다.
+
+실측 기록은 [docs/R12_MEASUREMENTS.md](./docs/R12_MEASUREMENTS.md)에 있습니다. 41종 시험은 **심판 판정 미확인**입니다.
+
+### 한계
+
+탐지 사건은 운영 미연결이며, 회수 재전송은 되돌릴 수 없어 운영에서 시험하지 않았습니다. 로그인이 필요한 금지 요청 중 일부는 미실행입니다.

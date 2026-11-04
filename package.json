@@ -8,6 +8,7 @@
     "test:r5": "node --test test/r5.test.mjs",
     "test:package": "node --test test/package-starter.test.mjs",
     "bundle": "node scripts/bundle.mjs",
+    "attack:table": "node scripts/attack-table.mjs",
     "decider:test": "node scripts/decider-test.mjs",
     "detect:test": "node scripts/detect-test.mjs",
     "policy:test": "node --test test/policy-snapshot.test.mjs",

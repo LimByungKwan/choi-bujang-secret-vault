@@ -25,7 +25,7 @@ const env = {
 };
 
 test('allowedRoutes contains reads allowed by the local resource policy only', () => {
-  assert.equal(alephConfig.step, 11);
+  assert.equal(alephConfig.step, 12);
   assert.equal(alephConfig.restoreRoute, 'POST /api/notes/restore');
   assert.deepEqual(alephConfig.allowedRoutes, [
     'GET /api/notes/:id',
@@ -204,8 +204,10 @@ test('attack check reads the public notes API without credentials', async () => 
   let options;
   try {
     globalThis.fetch = async (url, init) => {
-      requestUrl = String(url);
-      options = init;
+      if (!requestUrl && new URL(url).pathname === '/api/notes') {
+        requestUrl = String(url);
+        options = init;
+      }
       return new Response(JSON.stringify({ notes: [{ title: '가상' }] }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -214,10 +216,10 @@ test('attack check reads the public notes API without credentials', async () => 
     const [result] = await runAttackChecks(config);
     assert.equal(requestUrl, 'https://student-defense.vercel.app/api/notes');
     assert.equal(options.redirect, 'error');
-    assert.match(result.observed, /메모 응답이 확인됨/u);
+    assert.match(result.observed, /HTTP 200 · 메모 필드 있음/u);
     globalThis.fetch = async () => new Response('<html>not the data</html>', { status: 200 });
     const [failed] = await runAttackChecks(config);
-    assert.match(failed.observed, /보이지 않음/u);
+    assert.match(failed.observed, /HTTP 200 · 메모 필드 없음/u);
   } finally {
     globalThis.fetch = originalFetch;
   }
