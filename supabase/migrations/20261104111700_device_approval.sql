@@ -75,7 +75,7 @@ BEGIN
       OR p_purpose IS NULL
       OR p_purpose NOT IN ('registration', 'status', 'notes')
       OR p_challenge IS NULL
-      OR p_challenge !~ '^[A-Za-z0-9_-]{20,256}$'
+      OR p_challenge !~ '^[A-Za-z0-9_-]{20,255}$'
       OR p_expires_at IS NULL
       OR p_expires_at <= now()
       OR p_expires_at > now() + interval '10 minutes'
