@@ -2,6 +2,21 @@ import { createDeviceApprovalController } from './device-approval.mjs';
 import { createHttpRequestBinding } from './request-binding.mjs';
 
 const authStatus = document.querySelector('#auth-status');
+const opsSummaryValues = {
+  decider: document.querySelector('#ops-decider-value'),
+  detect: document.querySelector('#ops-detect-value'),
+  revocation: document.querySelector('#ops-revocation-value'),
+  restore: document.querySelector('#ops-restore-value'),
+};
+const opsSummarySources = {
+  decider: document.querySelector('#ops-decider-source'),
+  detect: document.querySelector('#ops-detect-source'),
+  revocation: document.querySelector('#ops-revocation-source'),
+  restore: document.querySelector('#ops-restore-source'),
+};
+const opsSummaryRequestId = document.querySelector('#ops-request-id');
+const opsSummaryCheckedAt = document.querySelector('#ops-checked-at');
+const opsSummaryCommit = document.querySelector('#ops-commit');
 const connectivityStatus = document.querySelector('#connectivity-status');
 const deviceApprovalStatus = document.querySelector('#device-approval-status');
 const deviceApprovalResult = document.querySelector('#device-approval-result');
@@ -35,6 +50,116 @@ function renderConnectivityStatus() {
     ? '브라우저 연결 상태: 온라인. 서버 접속 가능 여부를 보장하지는 않습니다.'
     : '브라우저 연결 상태: 오프라인. 로그인과 메모 API를 사용할 수 없습니다.';
   connectivityStatus.dataset.state = online ? 'online' : 'offline';
+}
+
+function resetOpsSummary() {
+  for (const element of Object.values(opsSummaryValues)) element.textContent = '확인 전';
+  for (const element of Object.values(opsSummarySources)) element.textContent = '확인 전';
+  opsSummaryRequestId.textContent = '확인 전';
+  opsSummaryCheckedAt.textContent = '확인 전';
+  opsSummaryCommit.textContent = '확인 전';
+}
+
+function failOpsSummary(message, requestId = message) {
+  for (const element of Object.values(opsSummaryValues)) element.textContent = message;
+  for (const element of Object.values(opsSummarySources)) element.textContent = message;
+  opsSummaryRequestId.textContent = requestId;
+  opsSummaryCheckedAt.textContent = message;
+  opsSummaryCommit.textContent = message;
+}
+
+function countSummary(counts, labels) {
+  if (!counts || typeof counts !== 'object' || Array.isArray(counts)) return null;
+  return labels.map(([key, label]) => {
+    const value = counts[key];
+    return Number.isSafeInteger(value) && value >= 0 ? `${label} ${value}` : null;
+  }).every(Boolean)
+    ? labels.map(([key, label]) => `${label} ${counts[key]}`).join(' · ')
+    : null;
+}
+
+function renderOpsSummary(data, headerRequestId) {
+  const sections = data?.sections;
+  const sourceLabels = {
+    api_measured: '실측',
+    code_static: '코드 기준',
+    not_connected: '미연결',
+  };
+  if (!sections || !Array.isArray(sections.decider?.rules)
+      || sections.decider.source !== 'code_static'
+      || sections.detect?.source !== 'not_connected'
+      || sections.detect.events !== null
+      || sections.revocation?.source !== 'api_measured'
+      || sections.restore?.source !== 'api_measured'
+      || typeof data.requestId !== 'string'
+      || typeof data.checkedAt !== 'string'
+      || typeof data.commit !== 'string') {
+    return false;
+  }
+
+  const revocation = countSummary(sections.revocation.counts, [
+    ['pending', '대기'], ['approved', '승인'], ['rejected', '거부'], ['revoked', '회수'],
+  ]);
+  const outcomes = countSummary(sections.restore.outcomes, [
+    ['restored', '복구'], ['no_change', '변경 없음'], ['conflict', '충돌'],
+    ['not_owned', '소유자 불일치'], ['failed', '실패'], ['rejected', '거부'],
+  ]);
+  if (!revocation || !outcomes
+      || !sections.decider.rules.every(rule => typeof rule === 'string')
+      || (sections.restore.latestAt !== null
+        && (typeof sections.restore.latestAt !== 'string'
+          || !Number.isFinite(Date.parse(sections.restore.latestAt))))) {
+    return false;
+  }
+
+  opsSummaryValues.decider.textContent = sections.decider.rules.join(' · ');
+  opsSummaryValues.detect.textContent = '미연결';
+  opsSummaryValues.revocation.textContent = revocation;
+  opsSummaryValues.restore.textContent = `${outcomes} · 최근 기록 ${
+    sections.restore.latestAt ?? '없음'
+  }`;
+  for (const [section, element] of Object.entries(opsSummarySources)) {
+    element.textContent = sourceLabels[sections[section].source];
+  }
+  opsSummaryRequestId.textContent = data.requestId || headerRequestId || '확인 실패(HTTP 200)';
+  opsSummaryCheckedAt.textContent = data.checkedAt;
+  opsSummaryCommit.textContent = data.commit;
+  return true;
+}
+
+async function loadOpsSummary() {
+  if (!activeUser) {
+    resetOpsSummary();
+    return;
+  }
+  const revision = sessionRevision;
+  try {
+    const headers = {};
+    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+    const response = await fetch('/api/ops/summary', {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers,
+    });
+    if (revision !== sessionRevision || !activeUser) return;
+    const requestId = response.headers.get('x-request-id');
+    if (!response.ok) {
+      failOpsSummary(`확인 실패(HTTP ${response.status})`, requestId
+        ? `${requestId} · 확인 실패(HTTP ${response.status})`
+        : `확인 실패(HTTP ${response.status})`);
+      return;
+    }
+    const data = await readJson(response);
+    if (revision !== sessionRevision || !activeUser) return;
+    if (!renderOpsSummary(data, requestId)) {
+      failOpsSummary('확인 실패(HTTP 200)', requestId || '확인 실패(HTTP 200)');
+    }
+  } catch {
+    if (revision === sessionRevision && activeUser) {
+      failOpsSummary('확인 실패(HTTP 응답 없음)');
+    }
+  }
 }
 
 deviceApprovalRequest.disabled = false;
@@ -199,7 +324,10 @@ function renderAuthState(user) {
   logoutError.hidden = true;
   authInitError.hidden = true;
   void deviceApproval.setSession(user);
-  if (!signedIn) {
+  if (signedIn) {
+    void loadOpsSummary();
+  } else {
+    resetOpsSummary();
     clearProtectedUi();
   }
 }

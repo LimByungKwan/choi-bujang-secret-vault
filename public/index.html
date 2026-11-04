@@ -20,6 +20,14 @@
     .service-status { margin: 20px 0; padding: 16px 18px; border: 1px solid #51667c; border-radius: 8px; background: #1a2a3d; }
     .service-status p { margin: 6px 0; font-size: 15px; }
     #connectivity-status[data-state="offline"] { color: #ffe3e8; }
+    .ops-summary { margin: 26px 0; padding: 20px; border: 1px solid #51667c; border-radius: 8px; background: #1a2a3d; overflow-x: auto; }
+    .ops-summary h2 { margin: 0 0 14px; font-size: 21px; }
+    .ops-summary table { width: 100%; border-collapse: collapse; text-align: left; }
+    .ops-summary th, .ops-summary td { padding: 10px 8px; border-bottom: 1px solid #51667c; vertical-align: top; }
+    .ops-summary th { color: #8ad8df; }
+    .ops-summary-meta { display: grid; gap: 5px; margin-top: 16px; overflow-wrap: anywhere; }
+    .ops-summary-meta p { margin: 0; font-size: 14px; }
+    .ops-summary .source-badge { display: inline-block; padding: 3px 8px; border: 1px solid #71869b; border-radius: 999px; white-space: nowrap; }
     .auth-form { display: grid; gap: 12px; }
     .auth-form label { display: grid; gap: 6px; color: #bfd0e5; }
     .auth-form input { box-sizing: border-box; width: 100%; padding: 11px 12px; border: 1px solid #71869b; border-radius: 6px; background: #101a28; color: #ecf4ff; font: inherit; }
@@ -73,6 +81,41 @@
         <p id="logout-error" class="auth-error" role="alert" hidden></p>
       </div>
       <p id="auth-init-error" class="auth-error" role="alert" hidden></p>
+    </section>
+    <section class="ops-summary" aria-labelledby="ops-summary-title">
+      <h2 id="ops-summary-title">탈환 작전실</h2>
+      <table>
+        <thead>
+          <tr><th scope="col">영역</th><th scope="col">요약</th><th scope="col">자료 기준</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">판정기 규칙</th>
+            <td id="ops-decider-value">확인 전</td>
+            <td><span id="ops-decider-source" class="source-badge">확인 전</span></td>
+          </tr>
+          <tr>
+            <th scope="row">탐지 사건</th>
+            <td id="ops-detect-value">확인 전</td>
+            <td><span id="ops-detect-source" class="source-badge">확인 전</span></td>
+          </tr>
+          <tr>
+            <th scope="row">기기 회수 상태</th>
+            <td id="ops-revocation-value">확인 전</td>
+            <td><span id="ops-revocation-source" class="source-badge">확인 전</span></td>
+          </tr>
+          <tr>
+            <th scope="row">복구 버전</th>
+            <td id="ops-restore-value">확인 전</td>
+            <td><span id="ops-restore-source" class="source-badge">확인 전</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="ops-summary-meta" aria-label="요약 확인 정보">
+        <p>요청 ID: <span id="ops-request-id">확인 전</span></p>
+        <p>확인 시각: <span id="ops-checked-at">확인 전</span></p>
+        <p>배포 커밋: <span id="ops-commit">확인 전</span></p>
+      </div>
     </section>
     <form id="note-form" class="note-form" hidden>
       <label for="note-title">메모 제목
