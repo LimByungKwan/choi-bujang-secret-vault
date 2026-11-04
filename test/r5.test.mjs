@@ -82,6 +82,7 @@ test('notes API rejects invalid identities and accepts verified student identiti
     };
     const { createNotesHandler } = await import('../api/notes.js');
     const handler = createNotesHandler({
+      verifyDeviceAssertion: async () => true,
       createVerifier: ({ config: verifierConfig, supabaseSecretKey }) => {
         assert.equal(verifierConfig.identityProvider.audience, 'authenticated');
         assert.equal(supabaseSecretKey, testKey);
@@ -150,6 +151,7 @@ test('notes function logs only safe diagnostics for Supabase failures', async ()
   try {
     const { createNotesHandler } = await import('../api/notes.js');
     const handler = createNotesHandler({
+      verifyDeviceAssertion: async () => true,
       createVerifier: () => async authorization => authorization === 'Bearer valid-student-token'
         ? { kind: 'student', userId: 'student-id' }
         : null,

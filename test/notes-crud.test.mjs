@@ -99,6 +99,7 @@ test('notes API enforces verified ownership for every CRUD operation', async () 
   try {
     const { createNotesHandler } = await import('../api/notes.js');
     const handler = createNotesHandler({
+      verifyDeviceAssertion: async () => true,
       createVerifier: () => async authorization => {
         if (authorization === 'Bearer test-user-a') return { kind: 'student', userId: userA };
         if (authorization === 'Bearer test-user-b') return { kind: 'student', userId: userB };
@@ -271,6 +272,7 @@ test('notes API rejects unsupported resource and management routes before databa
           return { json: responseBody => { body = responseBody; } };
         },
       });
+
       return { statusCode, body };
     };
 
@@ -327,6 +329,7 @@ test('notes API accepts cookie sessions only with matching origin and CSRF token
   try {
     const { createNotesHandler } = await import('../api/notes.js');
     const handler = createNotesHandler({
+      verifyDeviceAssertion: async () => true,
       createVerifier: () => async authorization => (
         authorization === 'Bearer cookie-session-access'
           ? { kind: 'student', userId: userA }

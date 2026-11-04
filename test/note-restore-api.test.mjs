@@ -154,6 +154,7 @@ async function invoke({
   identity = { kind: 'student', userId },
   beforeRpc,
   auditFailure = false,
+  verifyDeviceAssertion = async () => true,
 } = {}) {
   const { supabase, calls } = createFakeSupabase(notes, { beforeRpc });
   if (auditFailure) {
@@ -173,6 +174,7 @@ async function invoke({
   };
   const handler = createNoteRestoreHandler({
     env,
+    verifyDeviceAssertion,
     createVerifier: () => async value => (
       value === authorization ? identity : null
     ),
@@ -220,6 +222,28 @@ test('restores a deleted note with its original ID and authenticated owner', asy
   assert.equal(response.calls.rpc[0].p_owner_id, userId);
   assert.equal(response.calls.audits[0].outcome, 'restored');
   assertResponseIsSanitized(response);
+});
+
+test('restore API rejects direct access before reading or restoring a note', async () => {
+  const fixture = await createBackupFixture();
+  const original = {
+    id: noteId,
+    owner_id: userId,
+    title: 'synthetic current title',
+    content: 'synthetic current content',
+  };
+  const response = await invoke({
+    fixture,
+    notes: [{ ...original }],
+    verifyDeviceAssertion: async () => false,
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(response.body, { error: 'DEVICE_NOT_APPROVED' });
+  assert.deepEqual(response.notes, [{ ...original }]);
+  assert.equal(response.calls.queries.length, 0);
+  assert.equal(response.calls.rpc.length, 0);
+  assert.equal(response.calls.audits.at(-1).outcome, 'rejected');
 });
 
 test('leaves a note unchanged when it already matches the verified backup', async () => {

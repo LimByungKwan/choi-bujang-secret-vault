@@ -291,17 +291,19 @@ test('login and logout reject cross-origin or missing-CSRF requests before conta
 test('browser assets use same-origin auth and never contain Supabase keys or session tokens', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const approval = await readFile(new URL('../public/device-approval.mjs', import.meta.url), 'utf8');
+  const requestBinding = await readFile(new URL('../public/request-binding.mjs', import.meta.url), 'utf8');
   const manifestText = await readFile(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8');
   const manifest = JSON.parse(manifestText);
-  const browserAssets = `${html}\n${app}\n${manifestText}`;
+  const browserAssets = `${html}\n${app}\n${approval}\n${requestBinding}\n${manifestText}`;
 
   assert.match(html, /src="\/app\.js"/u);
   assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/u);
   assert.match(html, /application-name" content="BYTE BACK 자료실"/u);
   assert.match(html, /오프라인에서는 로그인과 메모 API를 사용할 수 없으며/u);
-  assert.match(html, /기기 승인 상태: 확인 불가/u);
+  assert.match(html, /기기 승인 상태: 서버에서 확인하기 전까지/u);
   assert.match(html, /id="device-approval-request" type="button" disabled/u);
-  assert.match(html, /요청 결과: 공식 승인 요청 API 계약이 없어 요청할 수 없습니다/u);
+  assert.match(html, /기기 등록 후 관리자 승인이 완료되어야/u);
   assert.deepEqual(manifest, {
     id: '/',
     name: 'BYTE BACK 자료실',
@@ -317,10 +319,19 @@ test('browser assets use same-origin auth and never contain Supabase keys or ses
   assert.match(app, /navigator\.onLine/u);
   assert.match(app, /addEventListener\('online'/u);
   assert.match(app, /addEventListener\('offline'/u);
-  assert.match(app, /const deviceApprovalState = 'unknown'/u);
-  assert.match(app, /deviceApprovalState !== 'approved'/u);
+  assert.match(app, /createDeviceApprovalController/u);
+  assert.match(app, /checkApproval: checkDeviceApproval/u);
+  assert.match(app, /\/api\/device\/registration-options/u);
+  assert.match(app, /\/api\/device\/verify/u);
+  assert.match(app, /createHttpRequestBinding/u);
+  assert.match(app, /X-Device-Assertion/u);
+  assert.match(app, /deviceApproval\.isApproved\(\)/u);
+  assert.doesNotMatch(app, /deviceApprovalState/u);
+  assert.match(app, /clearProtectedUi\(\);\s*renderDeviceApprovalState\('unknown'\)/u);
   assert.match(app, /기기 승인 상태를 확인할 수 없어 보호 메모를 열지 않았습니다/u);
-  assert.doesNotMatch(app, /\/api\/devices?\b|serviceWorker|localStorage|sessionStorage/u);
+  assert.doesNotMatch(app, /serviceWorker|localStorage|sessionStorage/u);
+  assert.doesNotMatch(approval, /localStorage|sessionStorage/u);
+  assert.doesNotMatch(requestBinding, /localStorage|sessionStorage/u);
   assert.match(app, /\/api\/auth\/login/u);
   assert.match(app, /\/api\/auth\/session/u);
   assert.match(app, /\/api\/auth\/logout/u);

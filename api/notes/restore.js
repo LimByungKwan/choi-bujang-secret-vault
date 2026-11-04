@@ -9,6 +9,7 @@ import {
   planSignedNoteRestore,
 } from '../../src/note-restore-core.mjs';
 import { createLoginVerifier } from '../../src/verify-login.mjs';
+import { verifyProtectedDeviceAssertion } from '../../src/device-approval-service.mjs';
 
 // Internal student restore endpoint; the official judge route contract remains unconfirmed.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -108,6 +109,7 @@ export function createNoteRestoreHandler({
   createVerifier = createLoginVerifier,
   createSupabaseClient = createClient,
   createStorageAdapter = createSupabaseBackupStorageAdapter,
+  verifyDeviceAssertion = verifyProtectedDeviceAssertion,
 } = {}) {
   let loginVerifier;
 
@@ -172,6 +174,22 @@ export function createNoteRestoreHandler({
       && UUID.test(body.targetId)
       ? body.targetId
       : null;
+    let deviceApproved = false;
+    try {
+      deviceApproved = await verifyDeviceAssertion(request, identity, supabase);
+    } catch {
+      deviceApproved = false;
+    }
+    if (!deviceApproved) {
+      const audited = await writeAudit(supabase, {
+        operationId,
+        actorId: identity.userId,
+        noteId,
+        outcome: 'rejected',
+      });
+      return auditFailureResponse(response, audited, 403, 'DEVICE_NOT_APPROVED');
+    }
+
     if (!exactRequestBody(body)) {
       const audited = await writeAudit(supabase, {
         operationId,

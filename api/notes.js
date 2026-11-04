@@ -4,6 +4,7 @@ import config from '../aleph.config.json' with { type: 'json' };
 import { readCookie, validateCookieRequest } from '../src/auth-session.mjs';
 import { createResourceId } from '../src/resource-id.mjs';
 import { createLoginVerifier } from '../src/verify-login.mjs';
+import { verifyProtectedDeviceAssertion } from '../src/device-approval-service.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const ACCESS_COOKIE = '__Secure-aleph_access';
@@ -58,7 +59,10 @@ function presentNote(note) {
   };
 }
 
-export function createNotesHandler({ createVerifier = createLoginVerifier } = {}) {
+export function createNotesHandler({
+  createVerifier = createLoginVerifier,
+  verifyDeviceAssertion = verifyProtectedDeviceAssertion,
+} = {}) {
   let loginVerifier;
 
   return async function handler(request, response) {
@@ -114,6 +118,9 @@ export function createNotesHandler({ createVerifier = createLoginVerifier } = {}
       const supabase = createClient(supabaseUrl, secretKey, {
         auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false },
       });
+      if (!await verifyDeviceAssertion(request, identity, supabase)) {
+        return response.status(403).json({ error: 'DEVICE_NOT_APPROVED' });
+      }
 
       if (request.method === 'GET' && !route.single) {
         const { data, error, status } = await supabase

@@ -433,8 +433,16 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 
 ## 11단계 · 기기 승인 화면 (제작 1·2)
 
-제작 1은 웹앱 manifest, 오프라인 안내, 브라우저 연결 상태 표시를 추가했습니다. 제작 2의 승인·서명 계약을 확인했으나 공식 등록·승인 API와 HTTP 요청 서명 규격은 저장소에서 확인되지 않았습니다. 따라서 현재 화면은 기기 승인 상태를 **확인 불가**로 표시하고 보호 메모를 열지 않도록 합니다. 기존 Supabase 로그인, 쿠키·CSRF, 메모 소유권 및 CRUD 서버 코드는 유지했습니다.
+제작 1의 manifest·오프라인 안내·연결 표시와 제작 2의 브라우저 fail-closed UI를 유지합니다. `POST /api/device/registration-options`와 `POST /api/device/registration-verify`가 WebAuthn 등록을 처리하고, 등록된 자격 증명은 `pending`으로 저장됩니다. `POST /api/device/challenge`와 `POST /api/device/verify`는 일회용 challenge/assertion으로 상태를 확인합니다. 승인 상태가 `approved`인 자격 증명의 유효한 assertion이 확인된 경우에만 `/api/notes`, `/api/notes/{id}`, `/api/notes/restore`가 메모 행에 접근합니다. 기존 Supabase Auth·HttpOnly 쿠키·CSRF 검사와 `owner_id` 필터는 유지됩니다. 거부·회수·미등록·검증 오류는 거부합니다.
 
-**미완료:** 서버의 기기 등록·승인 확인과 보호 API 차단, 요청 서명 검증(서명 누락 및 경로·본문 변조 거부), 승인 후 정상 메모 조회는 구현·검증하지 않았습니다. 앱 설치나 로그인은 기기 승인으로 취급하지 않습니다. 판정기는 `docs/DECIDER_REQUEST.md`의 요청 필드 18개, 응답 다섯 항목, `RULE_IDS` 계약과 일치해 수정하지 않았습니다.
+`GET /api/device/admin`은 대기 요청만 반환하고 `POST /api/device/admin`은 승인·거부·회수를 처리합니다. 두 관리자 동작 모두 서버에서 Supabase 사용자 UUID가 `DEVICE_APPROVAL_ADMIN_USER_IDS` 허용목록에 있는지 확인합니다. 이 환경변수는 Vercel에 저장 완료했지만 실제 WebAuthn 등록·승인과 운영 API 동작은 아직 검증하지 않았습니다. 등록 UI는 사용자의 인증기에서 공개키 증거를 받고, 개인키는 인증기 밖으로 내보내거나 웹 저장소에 저장하지 않습니다. WebAuthn은 승인된 인증 자격 증명의 소유 증거이며, 동기화형 패스키일 수 있어 물리 기기의 고유성이나 복제 불가를 보장하지 않습니다.
 
-검증: `npm.cmd install` 성공(취약점 0건), `npm.cmd test` 299/299 통과. 첫 테스트에서 단계 기대값이 10으로 남아 있던 회귀를 확인해 11로 맞춘 뒤 전체 통과했습니다. 운영 승인·서명 검증이나 승인 후 메모 조회를 시험한 결과는 아닙니다.
+보호 API 요청은 assertion용 WebAuthn challenge 발급 시 HTTP method, 정규화한 경로·query, 정규화한 JSON 본문 SHA-256을 함께 저장합니다. assertion 검증 시 현재 요청의 동일 값이 DB에 저장된 값과 모두 일치해야 challenge가 원자적으로 소비됩니다. 누락·변경·만료·재사용은 거부됩니다.
+
+**정규화 규칙:** method는 ASCII 대문자로 바꿉니다. target은 origin과 fragment 없이 `/`로 시작해야 하며, 경로 각 segment를 percent-decode 후 RFC 3986 방식으로 다시 인코딩합니다. 점 segment, encoded slash/backslash, 중복 slash는 거부하고 마지막 slash 하나는 제거합니다. query는 URLSearchParams 규칙(`+`는 공백)으로 decode한 뒤 key, value 순으로 정렬하고 모든 항목을 `key=value` 형식으로 RFC 3986 인코딩해 연결합니다. 본문이 없으면 `body_present=false`, digest는 NULL입니다. 본문이 있으면 JSON 객체 키를 재귀적으로 사전순 정렬하고 배열 순서는 유지한 canonical JSON을 UTF-8로 인코딩해 소문자 hex SHA-256을 계산합니다. JSON null은 본문 없음과 구분되며 비유한 수, undefined, 비JSON 값은 거부됩니다.
+
+**운영 상태:** [device-approval migration](./supabase/migrations/20261104111700_device_approval.sql)을 운영 DB에 적용했고 신규 테이블 2개 생성을 확인했습니다. 기존 메모 5건과 감사 기록 0건이 유지됨을 확인했으며, `DEVICE_APPROVAL_ADMIN_USER_IDS` 환경변수도 Vercel에 저장 완료했습니다. 실제 WebAuthn 등록·승인과 운영 API는 **미검증**입니다. 서명 규격의 공식 심판 호환성은 **미확인**입니다.
+
+검증: 자동 테스트는 WebAuthn 검증기를 모의해 등록 대기, 승인·거부·회수, 오류 시 거부, 인증 없이 메모 API 직접 호출 차단, 기존 인증·CSRF·A/B 소유권·복구 회귀를 확인합니다. 이 결과는 실제 인증기·운영 DB·공식 심판 판정을 뜻하지 않습니다.
+
+로컬 `npm test` 실행 결과: 340/340 통과, 실패 0. 운영 연동 및 심판 검증은 하지 않았습니다.

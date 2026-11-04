@@ -50,9 +50,9 @@
     <section class="service-status" aria-label="서비스 연결 및 기기 승인 상태">
       <p id="connectivity-status" role="status" aria-live="polite">브라우저 연결 상태를 확인하고 있습니다.</p>
       <p>오프라인에서는 로그인과 메모 API를 사용할 수 없으며, 메모는 오프라인에 저장되지 않습니다. 연결이 회복되면 페이지를 새로고침해 주세요.</p>
-      <p id="device-approval-status" role="status" aria-live="polite">기기 승인 상태: 확인 불가. 서버에 기기 등록 상태 조회 기능이 없습니다. 보호 메모는 열지 않습니다.</p>
-      <button id="device-approval-request" type="button" disabled>기기 승인 요청 기능 없음</button>
-      <p id="device-approval-result" role="status" aria-live="polite">요청 결과: 공식 승인 요청 API 계약이 없어 요청할 수 없습니다. 로그인, 앱 설치, 이 버튼의 존재는 기기 승인이 아닙니다.</p>
+      <p id="device-approval-status" role="status" aria-live="polite">기기 승인 상태: 서버에서 확인하기 전까지 보호 메모는 닫혀 있습니다.</p>
+      <button id="device-approval-request" type="button" disabled>이 기기 승인 요청</button>
+      <p id="device-approval-result" role="status" aria-live="polite">기기 등록 후 관리자 승인이 완료되어야 보호 메모에 접근할 수 있습니다.</p>
     </section>
     <section class="auth-panel" aria-labelledby="auth-title">
       <h2 id="auth-title">학습 계정 로그인</h2>
@@ -87,7 +87,7 @@
       </div>
       <p id="note-error" class="auth-error" role="alert" hidden></p>
     </form>
-    <ul id="notes" aria-live="polite"><li>가상 자료를 불러오는 중입니다.</li></ul>
+    <ul id="notes" aria-live="polite"></ul>
   </main>
   <script type="module" src="/app.js"></script>
 </body>

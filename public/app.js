@@ -1,6 +1,11 @@
+import { createDeviceApprovalController } from './device-approval.mjs';
+import { createHttpRequestBinding } from './request-binding.mjs';
+
 const authStatus = document.querySelector('#auth-status');
 const connectivityStatus = document.querySelector('#connectivity-status');
 const deviceApprovalStatus = document.querySelector('#device-approval-status');
+const deviceApprovalResult = document.querySelector('#device-approval-result');
+const deviceApprovalRequest = document.querySelector('#device-approval-request');
 const loginForm = document.querySelector('#login-form');
 const loginEmail = document.querySelector('#login-email');
 const loginPassword = document.querySelector('#login-password');
@@ -23,7 +28,6 @@ let csrfToken = null;
 let sessionFlight = null;
 let sessionRevision = 0;
 let editingNoteId = null;
-const deviceApprovalState = 'unknown';
 
 function renderConnectivityStatus() {
   const online = navigator.onLine;
@@ -33,30 +37,170 @@ function renderConnectivityStatus() {
   connectivityStatus.dataset.state = online ? 'online' : 'offline';
 }
 
+deviceApprovalRequest.disabled = false;
+deviceApprovalRequest.addEventListener('click', async () => {
+  deviceApprovalRequest.disabled = true;
+  deviceApprovalResult.textContent = '기기 등록을 확인하고 있습니다.';
+  try {
+    const challenge = await authRequest('/api/device/registration-options', {});
+    const credential = await navigator.credentials.create({
+      publicKey: decodeRegistrationOptions(challenge.options),
+    });
+    if (!credential) throw new Error('기기 등록이 취소되었습니다.');
+    const result = await authRequest('/api/device/registration-verify', {
+      challengeId: challenge.challengeId,
+      response: serializeCredential(credential),
+    });
+    deviceApprovalResult.textContent = result.status === 'pending'
+      ? '기기 등록이 완료되었습니다. 관리자 승인을 기다리는 중입니다.'
+      : '기기 등록 결과를 확인하지 못했습니다.';
+    await deviceApproval.setSession(activeUser);
+  } catch (error) {
+    deviceApprovalResult.textContent = error.message || '기기 등록을 완료하지 못했습니다.';
+  } finally {
+    deviceApprovalRequest.disabled = !activeUser;
+  }
+});
+
 window.addEventListener('online', renderConnectivityStatus);
 window.addEventListener('offline', renderConnectivityStatus);
 renderConnectivityStatus();
 
+function clearProtectedUi() {
+  noteForm.hidden = true;
+  noteForm.reset();
+  editingNoteId = null;
+  noteCancel.hidden = true;
+  noteSubmit.textContent = '메모 추가';
+  noteError.hidden = true;
+  notesList.replaceChildren();
+}
+
+function renderDeviceApprovalState(state) {
+  const messages = {
+    unknown: '기기 승인 상태: 확인 불가. 보호 메모는 닫혀 있습니다.',
+    signed_out: '기기 승인 상태: 로그인 후 확인할 수 있습니다.',
+    checking: '기기 승인 상태를 서버에 확인하고 있습니다. 보호 메모는 닫혀 있습니다.',
+    approved: '기기 승인 상태: 서버에서 승인 확인됨.',
+    unapproved: '기기 승인이 확인되지 않았습니다. 등록 또는 관리자 승인이 필요합니다.',
+    unavailable: '기기 승인 서버에 연결할 수 없습니다. 보호 메모는 닫혀 있습니다.',
+  };
+  deviceApprovalStatus.textContent = messages[state] ?? messages.unknown;
+  deviceApprovalStatus.dataset.state = state in messages ? state : 'unknown';
+  noteForm.hidden = state !== 'approved';
+  deviceApprovalResult.textContent = state === 'approved'
+    ? '서버 승인 확인 결과로 자료실 접근이 허용되었습니다.'
+    : '서버가 승인 상태를 확인하기 전에는 자료실에 접근할 수 없습니다.';
+}
+
+function refreshDeviceApprovalAfterDenial() {
+  const user = activeUser;
+  deviceApproval.invalidate();
+  if (user) void deviceApproval.setSession(user);
+}
+
+async function checkDeviceApproval() {
+  const challenge = await authRequest('/api/device/challenge', { purpose: 'status' });
+  if (!challenge.challengeId || !challenge.options) return 'unapproved';
+  const response = await navigator.credentials.get({
+    publicKey: decodeAuthenticationOptions(challenge.options),
+  });
+  if (!response) return 'unapproved';
+  const result = await authRequest('/api/device/verify', {
+    purpose: 'status',
+    challengeId: challenge.challengeId,
+    response: serializeCredential(response),
+  });
+  return result.status === 'approved' ? 'approved' : 'unapproved';
+}
+
+const deviceApproval = createDeviceApprovalController({
+  checkApproval: checkDeviceApproval,
+  clearProtectedUi,
+  onStateChange: renderDeviceApprovalState,
+  loadNotes,
+});
+clearProtectedUi();
+renderDeviceApprovalState('unknown');
+
+function decodeBase64Url(value) {
+  const base64 = value.replace(/-/gu, '+').replace(/_/gu, '/');
+  const binary = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+function encodeBase64Url(value) {
+  const bytes = new Uint8Array(value);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=/gu, '').replace(/\+/gu, '-').replace(/\//gu, '_');
+}
+
+function decodeRegistrationOptions(options) {
+  return {
+    ...options,
+    challenge: decodeBase64Url(options.challenge),
+    user: { ...options.user, id: decodeBase64Url(options.user.id) },
+    excludeCredentials: options.excludeCredentials?.map(item => ({
+      ...item, id: decodeBase64Url(item.id),
+    })),
+  };
+}
+
+function decodeAuthenticationOptions(options) {
+  return {
+    ...options,
+    challenge: decodeBase64Url(options.challenge),
+    allowCredentials: options.allowCredentials?.map(item => ({
+      ...item, id: decodeBase64Url(item.id),
+    })),
+  };
+}
+
+function serializeCredential(credential) {
+  const response = {
+    clientDataJSON: encodeBase64Url(credential.response.clientDataJSON),
+  };
+  if (credential.response.attestationObject) {
+    response.attestationObject = encodeBase64Url(credential.response.attestationObject);
+  }
+  if (credential.response.authenticatorData) {
+    response.authenticatorData = encodeBase64Url(credential.response.authenticatorData);
+  }
+  if (credential.response.signature) {
+    response.signature = encodeBase64Url(credential.response.signature);
+  }
+  if (credential.response.userHandle) {
+    response.userHandle = encodeBase64Url(credential.response.userHandle);
+  }
+  if (credential.response.getTransports) {
+    response.transports = credential.response.getTransports();
+  }
+  return {
+    id: credential.id,
+    rawId: encodeBase64Url(credential.rawId),
+    type: credential.type,
+    response,
+    clientExtensionResults: credential.getClientExtensionResults(),
+  };
+}
+
 function renderAuthState(user) {
   activeUser = user;
+  sessionRevision += 1;
   const signedIn = Boolean(user);
   authStatus.textContent = signedIn ? '로그인되었습니다.' : '로그인되어 있지 않습니다.';
   loginForm.hidden = signedIn;
   accountView.hidden = !signedIn;
+  deviceApprovalRequest.disabled = !signedIn;
   noteForm.hidden = true;
   accountEmail.textContent = user?.email ?? '';
-  deviceApprovalStatus.textContent = '기기 승인 상태: 확인 불가. 서버에 기기 등록 상태 조회 기능이 없습니다. 보호 메모는 열지 않습니다.';
   loginError.hidden = true;
   logoutError.hidden = true;
   authInitError.hidden = true;
+  void deviceApproval.setSession(user);
   if (!signedIn) {
-    editingNoteId = null;
-    noteForm.reset();
-    noteCancel.hidden = true;
-    noteSubmit.textContent = '메모 추가';
-    const item = document.createElement('li');
-    item.textContent = '로그인하면 가상 자료를 확인할 수 있습니다.';
-    notesList.replaceChildren(item);
+    clearProtectedUi();
   }
 }
 
@@ -66,6 +210,7 @@ function messageForFailure(code, status, fallback) {
   if (code === 'ORIGIN_NOT_ALLOWED' || code === 'CSRF_FAILED') return '보안 확인에 실패했습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.';
   if (code === 'UNAUTHORIZED' || status === 401) return '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.';
   if (code === 'NOTE_NOT_FOUND') return '메모를 찾을 수 없거나 접근할 수 없습니다.';
+  if (code === 'DEVICE_NOT_APPROVED') return '기기 승인이 확인되지 않아 보호 화면을 닫았습니다.';
   if (code === 'INVALID_NOTE' || code === 'INVALID_NOTE_ID') return '입력한 메모 정보를 확인해 주세요.';
   return fallback;
 }
@@ -131,24 +276,69 @@ async function authRequest(path, body) {
   }
   const data = await readJson(response);
   if (!response.ok) {
+    if (data.error === 'DEVICE_NOT_APPROVED') refreshDeviceApprovalAfterDenial();
     throw new Error(messageForFailure(data.error, response.status,
       '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'));
   }
   return data;
 }
 
+async function getDeviceAssertion(purpose, binding) {
+  const challenge = await authRequest('/api/device/challenge', { purpose, ...binding });
+  if (!challenge.challengeId || !challenge.options) {
+    const error = new Error('기기 승인이 확인되지 않았습니다.');
+    error.code = 'DEVICE_NOT_APPROVED';
+    throw error;
+  }
+  const credential = await navigator.credentials.get({
+    publicKey: decodeAuthenticationOptions(challenge.options),
+  });
+  if (!credential) throw new Error('기기 확인이 취소되었습니다.');
+  return { challengeId: challenge.challengeId, response: serializeCredential(credential) };
+}
+
 async function notesRequest(path, options = {}, retryAfterRefresh = true) {
-  if (deviceApprovalState !== 'approved') {
+  if (!deviceApproval.isApproved()) {
     throw new Error('기기 승인 상태를 확인할 수 없어 보호 메모를 열지 않았습니다.');
   }
   const requestRevision = sessionRevision;
+  const method = options.method ?? 'GET';
+  const hasBody = options.body !== undefined;
+  let boundBody;
+  if (hasBody) {
+    try {
+      boundBody = JSON.parse(options.body);
+    } catch {
+      throw new Error('요청 본문을 서명할 수 없습니다.');
+    }
+  }
+  const requestBinding = await createHttpRequestBinding({
+    method,
+    target: path,
+    body: boundBody,
+    hasBody,
+  });
+  let deviceAssertion;
+  try {
+    deviceAssertion = await getDeviceAssertion('notes', {
+      method: requestBinding.method,
+      target: requestBinding.target,
+      hasBody,
+      ...(hasBody ? { body: boundBody } : {}),
+    });
+  } catch (error) {
+    if (error.code === 'DEVICE_NOT_APPROVED') refreshDeviceApprovalAfterDenial();
+    throw error;
+  }
   const headers = {};
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  headers['X-Device-Assertion'] = JSON.stringify(deviceAssertion);
   let response;
   try {
     response = await fetch(path, {
       ...options,
+      method,
       cache: 'no-store',
       credentials: 'same-origin',
       headers,
@@ -171,17 +361,21 @@ async function notesRequest(path, options = {}, retryAfterRefresh = true) {
   return data;
 }
 
-async function loadNotes() {
-  if (!activeUser) return;
-  if (deviceApprovalState !== 'approved') {
-    noteForm.hidden = true;
-    const item = document.createElement('li');
-    item.textContent = '기기 승인 상태를 확인할 수 없어 보호 메모를 열지 않았습니다.';
-    notesList.replaceChildren(item);
+async function loadNotes(isApprovalCurrent = () => true) {
+  if (!activeUser || !deviceApproval.isApproved()) {
+    clearProtectedUi();
     return;
   }
+  const userId = activeUser.id;
+  const revision = sessionRevision;
+  const isCurrent = () => isApprovalCurrent()
+    && deviceApproval.isApproved()
+    && activeUser?.id === userId
+    && sessionRevision === revision;
+
   try {
     const data = await notesRequest('/api/notes');
+    if (!isCurrent()) return;
     if (!Array.isArray(data.notes)) throw new Error('자료 형식이 맞지 않습니다.');
     notesList.replaceChildren(...data.notes.map(note => {
       const item = document.createElement('li');
@@ -226,7 +420,7 @@ async function loadNotes() {
     }));
     noteError.hidden = true;
   } catch (error) {
-    if (activeUser) {
+    if (isCurrent()) {
       const item = document.createElement('li');
       item.textContent = error.message || '메모를 불러오지 못했습니다.';
       notesList.replaceChildren(item);
@@ -284,7 +478,6 @@ loginForm.addEventListener('submit', async event => {
     });
     loginPassword.value = '';
     renderAuthState(data.user);
-    await loadNotes();
   } catch (error) {
     loginError.textContent = error.message || '로그인하지 못했습니다. 입력을 확인해 주세요.';
     loginError.hidden = false;
@@ -313,10 +506,12 @@ logoutButton.addEventListener('click', async () => {
   }
 });
 
-getSession().then(user => {
-  if (user) return loadNotes();
+getSession().then(() => {
   noteError.hidden = true;
 }).catch(error => {
+  deviceApproval.invalidate();
+  activeUser = null;
+  clearProtectedUi();
   authStatus.textContent = '로그인 상태를 확인하지 못했습니다.';
   loginForm.hidden = false;
   accountView.hidden = true;
