@@ -15,5 +15,5 @@
     "GET /api/announcements/:id"
   ],
   "originalApiUrl": "https://xtsxnytubfjpubepzbtz.supabase.co/rest/v1/learning_notes",
-  "restoreRoute": null
+  "restoreRoute": "POST /api/notes/restore"
 }

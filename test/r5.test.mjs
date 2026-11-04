@@ -26,6 +26,7 @@ const env = {
 
 test('allowedRoutes contains reads allowed by the local resource policy only', () => {
   assert.equal(alephConfig.step, 10);
+  assert.equal(alephConfig.restoreRoute, 'POST /api/notes/restore');
   assert.deepEqual(alephConfig.allowedRoutes, [
     'GET /api/notes/:id',
     'GET /api/announcements',

@@ -376,17 +376,34 @@ Vercel 프로젝트의 **Settings → Environment Variables**에 `SUPABASE_URL`,
 
 현재 로컬 구현에는 서명 검증이 끝난 비공개 백업을 읽고, student 인증 사용자 자신의 메모만 복구하는 내부 handler `POST /api/notes/restore`가 추가되었습니다. 이 handler의 내부 요청 형식은 `targetId`, `backupVersion`이며, 기존 행이 백업과 다르면 그 현재 상태를 명시적으로 승인하기 위해 `approvedCurrentTitle`과 `approvedCurrentContent`도 함께 요구합니다. 이 승인값은 API 처리 중 현재 DB 상태와 일치하는지 검사하고, 응답이나 로그에 포함하지 않습니다. API는 백업 원문을 응답하지 않습니다.
 
+Vercel 서버 함수의 실제 경로는 `POST /api/notes/restore`이며, `aleph.config.json`의 `restoreRoute`는 `"POST /api/notes/restore"` 형식의 문자열로 기록합니다. 이 메타데이터는 `allowedRoutes`를 변경하거나 인증을 우회하지 않습니다. 요청은 검증된 student 계정의 `Authorization: Bearer …` 또는 `__Secure-aleph_access` HttpOnly 세션 쿠키로 인증하며, 쿠키 인증은 Origin/CSRF 검사를 통과해야 합니다. JSON 본문은 다음 형식입니다.
+
+```json
+{
+  "targetId": "<메모 UUID>",
+  "backupVersion": "<백업 버전>",
+  "approvedCurrentTitle": "<현재 제목>",
+  "approvedCurrentContent": "<현재 본문>"
+}
+```
+
+`approvedCurrentTitle`과 `approvedCurrentContent`는 기존 메모가 백업과 다를 때만 필요하며 둘 다 함께 보내야 합니다. 기존 메모가 없거나 백업과 이미 같으면 두 필드를 생략합니다. 위 값은 형식 예시이며 실제 메모 ID·내용을 문서나 로그에 복사하지 마세요.
+
 DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 잠금 및 조건부 변경으로 재확인하고, 삭제 행은 원래 ID로 insert-if-absent 합니다. ID 충돌은 덮어쓰지 않으며 결과와 최소 감사 정보만 기록합니다. 현재 스키마에는 `created_at`이 있으나 기존 백업·서명 형식에는 포함되지 않으므로 삭제 복구 시 DB 기본값을 사용합니다.
 
-위 내부 route와 요청 형식은 프로젝트의 서버 기능일 뿐 **공식 심판 복구 API 계약으로 확인되지 않았습니다**. `aleph.config.json`의 `restoreRoute`와 `allowedRoutes`는 기존 값을 유지하며, 공식 route·payload·호출자 계약 확인 전에는 이를 심판 호환으로 제출하거나 설정하지 마세요.
+위 경로·요청 형식은 프로젝트의 내부 구현 계약일 뿐 **공식 심판 복구 API의 route·payload·호출자 계약으로 확인되지 않았습니다**. `restoreRoute`는 내부 경로 메타데이터이며 기존 1~9단계의 `allowedRoutes` 및 정책은 그대로 유지합니다. 심판이 이 경로를 호출한다고 가정하거나 공식 호환을 주장하지 마세요.
 
 로컬 실행과 운영 준비:
 
 - 전체 저장소 테스트: `npm.cmd test` — `test/`의 자동 테스트 전체 실행
 - 정적 빌드: `npm.cmd run build -- --local`
-- 서버 설정 준비 항목: `NOTE_BACKUP_BUCKET`, `NOTE_BACKUP_TRUSTED_PUBLIC_KEYS_JSON` 및 기존 서버 전용 Supabase 설정. 실제 값은 승인된 서버 설정 화면에서만 입력하고 코드나 로그에 복사하지 않습니다.
-- Supabase migration 적용, private bucket·정책 생성, 운영 공개키 등록, 실제 메모 백업/복구, Vercel 배포 및 심판 검증은 아직 수행하지 않았습니다. 이번 구현의 가짜 DB/Storage 테스트는 PostgreSQL 또는 운영 환경 통합 검증이 아닙니다.
-- 제출 전 장애 요소: 공식 심판 요청 계약 확인, 실제 DB 권한·RLS 검토, migration 검증·승인, private Storage 권한 설정, 신뢰 공개키 공급·회전 계획, B 메모 백업의 별도 승인과 검증, 실제 환경 회귀·복구 시험.
+- Supabase private bucket `note-backups`는 존재하고 Vercel의 `NOTE_BACKUP_BUCKET` 설정도 등록되어 있습니다. `NOTE_BACKUP_TRUSTED_PUBLIC_KEYS_JSON` 및 기존 서버 전용 Supabase 설정은 승인된 서버 설정 화면에서만 관리하며 실제 값을 코드나 로그에 복사하지 않습니다.
+- Supabase migration 적용, Storage 접근 정책 검증, 운영 공개키 등록, 실제 메모 백업/복구, Vercel 배포 및 심판 검증은 아직 수행하지 않았습니다. 이번 구현의 가짜 DB/Storage 테스트는 PostgreSQL 또는 운영 환경 통합 검증이 아닙니다.
+- 미완료 운영 작업은 다음 세 묶음입니다.
+
+1. 공식 심판의 route·payload·호출자 계약을 확인하고, DB 권한/RLS 및 migration을 검토·승인한 뒤 운영 RPC를 통합 검증합니다. Migration은 아직 적용하지 않았습니다.
+2. 승인된 운영 설정에서 Ed25519 개인키를 안전하게 보관하고 공개키 공급·회전 및 private Storage 접근 정책을 구성·검증합니다. 운영 키 설정은 미완료입니다.
+3. 별도 승인 후 B 메모 백업을 생성·검증하고, 실제 환경에서 회귀 및 복구 시험을 수행합니다. 운영 B 백업·복구와 배포는 미실행입니다.
 
 ### 최종 정리 진행 기록
 
@@ -404,8 +421,8 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
    - 새 임시 clone에서 `npm.cmd install`: 성공, npm audit 취약점 0건. 이어 `npm.cmd test` 299/299 및 local build 성공.
    - `npm.cmd run bundle`: 미완료. 제출 금지된 미커밋 변경을 감지해 첫 안전 검사에서 종료했고, 운영 API 자기 점검은 호출하지 않았으며 제출 JSON도 생성하지 않았습니다.
 
-복구 내부 경로는 `POST /api/notes/restore`입니다. 이는 프로젝트가 정한 내부 구현이며 **심판의 route·호출자·JSON 계약으로 확인되지 않았습니다**. `aleph.config.json`의 `restoreRoute: null`과 기존 `allowedRoutes`는 보존합니다. 공식 심판 자료에서 계약을 확인하기 전에는 심판이 이 경로를 호출한다고 가정하거나 설정을 바꾸지 마세요.
+복구 내부 경로는 `POST /api/notes/restore`이며 `aleph.config.json`의 `restoreRoute` 문자열에 기록합니다. 이는 프로젝트가 정한 내부 구현이며 **심판의 route·호출자·JSON 계약으로 확인되지 않았습니다**. 기존 `allowedRoutes`와 인증 정책은 보존하며, 공식 심판 자료에서 계약을 확인하기 전에는 심판이 이 경로를 호출한다고 가정하지 마세요.
 
 복구 대상 ID는 이 README, 소스, 테스트 fixture, 터미널 기록, Git, 제출 묶음 또는 채팅에 쓰지 않습니다. 권한 있는 계정에서 확인한 뒤 학원이 승인한 암호화 비밀 저장소에만 임시 보관하고, 요청 시 명령행 인자나 환경변수 대신 승인된 비밀 입력 경로를 사용하세요. 작업 후 임시 기록을 폐기하고 B 메모의 ID·제목·본문을 로그에 남기지 마세요.
 
-**미완료:** 운영 Ed25519 개인키·신뢰 공개키 설정, 실제 B 백업 생성 및 무결성 확인, Supabase migration 적용 전 검토, restore endpoint의 실제 DB 통합 확인, 공식 심판 route/schema 확인, 실제 환경에서의 승인된 복구 검증은 모두 미실행입니다. 실제 테스트를 하지 않은 항목을 통과로 기록하지 않습니다.
+**미완료:** 공식 심판 요청 계약 및 DB migration/RPC 운영 검증, 운영 Ed25519 키와 Storage 정책 설정, 승인된 B 백업·실제 복구 검증은 아직 수행하지 않았습니다. 실제 테스트를 하지 않은 항목을 통과로 기록하지 않습니다.
