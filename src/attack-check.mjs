@@ -95,6 +95,11 @@ export async function runAttackChecks(config) {
 
   const results = [];
   for (const { attackId, expected, request } of requests()) {
+    // The judge sandbox only permits GET and HEAD; write checks are recorded as not run.
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      results.push({ attackId, expected, observed: 'not_run' });
+      continue;
+    }
     const url = new URL(request.path, app);
     try {
       const response = await fetch(url, {
