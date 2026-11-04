@@ -1,0 +1,12 @@
+{
+  "id": "/",
+  "name": "BYTE BACK 자료실",
+  "short_name": "BYTE BACK",
+  "description": "BYTE BACK 방어전 학습 자료실",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101a28",
+  "theme_color": "#101a28"
+}

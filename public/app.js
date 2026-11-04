@@ -1,4 +1,6 @@
 const authStatus = document.querySelector('#auth-status');
+const connectivityStatus = document.querySelector('#connectivity-status');
+const deviceApprovalStatus = document.querySelector('#device-approval-status');
 const loginForm = document.querySelector('#login-form');
 const loginEmail = document.querySelector('#login-email');
 const loginPassword = document.querySelector('#login-password');
@@ -21,6 +23,19 @@ let csrfToken = null;
 let sessionFlight = null;
 let sessionRevision = 0;
 let editingNoteId = null;
+const deviceApprovalState = 'unknown';
+
+function renderConnectivityStatus() {
+  const online = navigator.onLine;
+  connectivityStatus.textContent = online
+    ? '브라우저 연결 상태: 온라인. 서버 접속 가능 여부를 보장하지는 않습니다.'
+    : '브라우저 연결 상태: 오프라인. 로그인과 메모 API를 사용할 수 없습니다.';
+  connectivityStatus.dataset.state = online ? 'online' : 'offline';
+}
+
+window.addEventListener('online', renderConnectivityStatus);
+window.addEventListener('offline', renderConnectivityStatus);
+renderConnectivityStatus();
 
 function renderAuthState(user) {
   activeUser = user;
@@ -28,8 +43,9 @@ function renderAuthState(user) {
   authStatus.textContent = signedIn ? '로그인되었습니다.' : '로그인되어 있지 않습니다.';
   loginForm.hidden = signedIn;
   accountView.hidden = !signedIn;
-  noteForm.hidden = !signedIn;
+  noteForm.hidden = true;
   accountEmail.textContent = user?.email ?? '';
+  deviceApprovalStatus.textContent = '기기 승인 상태: 확인 불가. 서버에 기기 등록 상태 조회 기능이 없습니다. 보호 메모는 열지 않습니다.';
   loginError.hidden = true;
   logoutError.hidden = true;
   authInitError.hidden = true;
@@ -122,6 +138,9 @@ async function authRequest(path, body) {
 }
 
 async function notesRequest(path, options = {}, retryAfterRefresh = true) {
+  if (deviceApprovalState !== 'approved') {
+    throw new Error('기기 승인 상태를 확인할 수 없어 보호 메모를 열지 않았습니다.');
+  }
   const requestRevision = sessionRevision;
   const headers = {};
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
@@ -154,6 +173,13 @@ async function notesRequest(path, options = {}, retryAfterRefresh = true) {
 
 async function loadNotes() {
   if (!activeUser) return;
+  if (deviceApprovalState !== 'approved') {
+    noteForm.hidden = true;
+    const item = document.createElement('li');
+    item.textContent = '기기 승인 상태를 확인할 수 없어 보호 메모를 열지 않았습니다.';
+    notesList.replaceChildren(item);
+    return;
+  }
   try {
     const data = await notesRequest('/api/notes');
     if (!Array.isArray(data.notes)) throw new Error('자료 형식이 맞지 않습니다.');

@@ -291,9 +291,36 @@ test('login and logout reject cross-origin or missing-CSRF requests before conta
 test('browser assets use same-origin auth and never contain Supabase keys or session tokens', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
-  const browserAssets = `${html}\n${app}`;
+  const manifestText = await readFile(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8');
+  const manifest = JSON.parse(manifestText);
+  const browserAssets = `${html}\n${app}\n${manifestText}`;
 
   assert.match(html, /src="\/app\.js"/u);
+  assert.match(html, /rel="manifest" href="\/manifest\.webmanifest"/u);
+  assert.match(html, /application-name" content="BYTE BACK 자료실"/u);
+  assert.match(html, /오프라인에서는 로그인과 메모 API를 사용할 수 없으며/u);
+  assert.match(html, /기기 승인 상태: 확인 불가/u);
+  assert.match(html, /id="device-approval-request" type="button" disabled/u);
+  assert.match(html, /요청 결과: 공식 승인 요청 API 계약이 없어 요청할 수 없습니다/u);
+  assert.deepEqual(manifest, {
+    id: '/',
+    name: 'BYTE BACK 자료실',
+    short_name: 'BYTE BACK',
+    description: 'BYTE BACK 방어전 학습 자료실',
+    lang: 'ko',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    background_color: '#101a28',
+    theme_color: '#101a28',
+  });
+  assert.match(app, /navigator\.onLine/u);
+  assert.match(app, /addEventListener\('online'/u);
+  assert.match(app, /addEventListener\('offline'/u);
+  assert.match(app, /const deviceApprovalState = 'unknown'/u);
+  assert.match(app, /deviceApprovalState !== 'approved'/u);
+  assert.match(app, /기기 승인 상태를 확인할 수 없어 보호 메모를 열지 않았습니다/u);
+  assert.doesNotMatch(app, /\/api\/devices?\b|serviceWorker|localStorage|sessionStorage/u);
   assert.match(app, /\/api\/auth\/login/u);
   assert.match(app, /\/api\/auth\/session/u);
   assert.match(app, /\/api\/auth\/logout/u);
