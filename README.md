@@ -441,7 +441,7 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 
 **정규화 규칙:** method는 ASCII 대문자로 바꿉니다. target은 origin과 fragment 없이 `/`로 시작해야 하며, 경로 각 segment를 percent-decode 후 RFC 3986 방식으로 다시 인코딩합니다. 점 segment, encoded slash/backslash, 중복 slash는 거부하고 마지막 slash 하나는 제거합니다. query는 URLSearchParams 규칙(`+`는 공백)으로 decode한 뒤 key, value 순으로 정렬하고 모든 항목을 `key=value` 형식으로 RFC 3986 인코딩해 연결합니다. 본문이 없으면 `body_present=false`, digest는 NULL입니다. 본문이 있으면 JSON 객체 키를 재귀적으로 사전순 정렬하고 배열 순서는 유지한 canonical JSON을 UTF-8로 인코딩해 소문자 hex SHA-256을 계산합니다. JSON null은 본문 없음과 구분되며 비유한 수, undefined, 비JSON 값은 거부됩니다.
 
-**운영 상태:** [device-approval migration](./supabase/migrations/20261104111700_device_approval.sql)을 운영 DB에 적용했고 신규 테이블 2개 생성을 확인했습니다. 기존 메모 5건과 감사 기록 0건이 유지됨을 확인했으며, `DEVICE_APPROVAL_ADMIN_USER_IDS` 환경변수도 Vercel에 저장 완료했습니다. 실제 WebAuthn 등록·승인과 운영 API는 **미검증**입니다. 서명 규격의 공식 심판 호환성은 **미확인**입니다.
+**운영 상태:** [device-approval migration](./supabase/migrations/20261104111700_device_approval.sql)을 운영 DB에 적용했고 신규 테이블 2개 생성을 확인했습니다. 기존 메모 5건과 감사 기록 0건이 유지됨을 확인했으며, `DEVICE_APPROVAL_ADMIN_USER_IDS` 환경변수도 Vercel에 저장 완료했습니다. 운영에서 A 계정으로 WebAuthn 등록 뒤 `pending` 상태를 거쳐 관리자 API(`POST /api/device/admin`)로 승인했고, 승인 뒤에만 A 메모 4건이 표시되는 것을 직접 확인했습니다. 승인 전에는 메모가 표시되지 않았고 B 계정 메모는 보이지 않았습니다. 앞서 `POST /api/device/registration-options`가 503을 반환한 원인은 DB 함수 정규식의 반복 상한 `{20,256}`이 PostgreSQL 상한 255를 넘어 발생한 오류 2201B였으며, 상한을 `{20,255}`로 고치는 [수정 migration](./supabase/migrations/20261104140500_fix_device_challenge_regex.sql)을 추가한 뒤 해결을 확인했습니다. 서명 규격의 공식 심판 호환성은 **미확인**입니다.
 
 검증: 자동 테스트는 WebAuthn 검증기를 모의해 등록 대기, 승인·거부·회수, 오류 시 거부, 인증 없이 메모 API 직접 호출 차단, 기존 인증·CSRF·A/B 소유권·복구 회귀를 확인합니다. 이 결과는 실제 인증기·운영 DB·공식 심판 판정을 뜻하지 않습니다.
 
