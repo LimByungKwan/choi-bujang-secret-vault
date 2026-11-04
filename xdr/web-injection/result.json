@@ -5,19 +5,19 @@
     {
       "alertId": "wi-01",
       "action": "block",
-      "confidence": 0.94,
+      "confidence": 0.91,
       "reason": "sql_injection_syntax"
     },
     {
       "alertId": "wi-02",
       "action": "block",
-      "confidence": 0.91,
+      "confidence": 0.88,
       "reason": "script_tag"
     },
     {
       "alertId": "wi-03",
       "action": "block",
-      "confidence": 0.89,
+      "confidence": 0.86,
       "reason": "repeated_path_traversal"
     },
     {
@@ -28,140 +28,140 @@
     },
     {
       "alertId": "wi-05",
-      "action": "record",
-      "confidence": 0,
-      "reason": "no_injection_pattern"
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "mixed_script_sql"
     },
     {
       "alertId": "wi-06",
       "action": "block",
-      "confidence": 0.92,
+      "confidence": 0.89,
       "reason": "command_separator"
     },
     {
       "alertId": "wi-07",
       "action": "block",
-      "confidence": 0.96,
+      "confidence": 0.93,
       "reason": "repeated_path_traversal"
     },
     {
       "alertId": "wi-08",
       "action": "block",
-      "confidence": 0.9,
+      "confidence": 0.87,
       "reason": "sql_injection_syntax"
     },
     {
       "alertId": "wi-09",
-      "action": "record",
-      "confidence": 0,
-      "reason": "missing_doc_marker"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-10",
-      "action": "record",
-      "confidence": 0,
-      "reason": "missing_doc_marker"
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-11",
-      "action": "record",
-      "confidence": 0,
-      "reason": "missing_doc_marker"
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-12",
-      "action": "record",
-      "confidence": 0,
-      "reason": "missing_doc_marker"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-13",
-      "action": "record",
-      "confidence": 0,
-      "reason": "missing_doc_marker"
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-14",
-      "action": "record",
-      "confidence": 0,
-      "reason": "missing_doc_marker"
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-15",
-      "action": "record",
-      "confidence": 0,
-      "reason": "no_injection_pattern"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-16",
-      "action": "record",
-      "confidence": 0,
-      "reason": "no_injection_pattern"
+      "action": "alert",
+      "confidence": 0.7,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-17",
-      "action": "record",
-      "confidence": 0,
-      "reason": "missing_doc_marker"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "single_attempt"
     },
     {
       "alertId": "wi-18",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-19",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-20",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-21",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-22",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-23",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-24",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-25",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     },
     {
       "alertId": "wi-26",
       "action": "record",
       "confidence": 0,
-      "reason": "invalid_input"
+      "reason": "normal_low_level"
     }
   ],
   "counts": {
-    "block": 7,
-    "alert": 0,
-    "record": 19
+    "block": 8,
+    "alert": 9,
+    "record": 9
   }
 }

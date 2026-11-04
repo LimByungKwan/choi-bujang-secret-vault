@@ -40,6 +40,17 @@
       "ruleId": "xdr_web_injection_block",
       "effect": "deny",
       "match": {
+        "srcip": "203.0.113.18"
+      },
+      "expiresAt": "2026-09-27T02:18:33.000Z",
+      "alertIds": [
+        "wi-05"
+      ]
+    },
+    {
+      "ruleId": "xdr_web_injection_block",
+      "effect": "deny",
+      "match": {
         "srcip": "198.51.100.18"
       },
       "expiresAt": "2026-09-27T03:07:08.000Z",
