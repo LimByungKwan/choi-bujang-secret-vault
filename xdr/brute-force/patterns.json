@@ -1,0 +1,25 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "brute-force",
+  "source": "MITRE ATT&CK T1110 Brute Force (https://attack.mitre.org/techniques/T1110/)",
+  "patterns": [
+    {
+      "name": "same_source_failure_burst",
+      "technique": "T1110.001",
+      "condition": "규칙 수준 10 이상이고, 같은 주소(같은 계정)에서 짧은 시간에 로그인 실패가 20건 이상 이어지며, 그 뒤 성공이 없음",
+      "evidence": "MITRE ATT&CK T1110.001(Password Guessing): 공격자는 한 계정에 비밀번호를 반복해 넣어 맞추며, 짧은 시간의 실패 급증이 대표 신호입니다."
+    },
+    {
+      "name": "password_spraying",
+      "technique": "T1110.003",
+      "condition": "규칙 수준 10 이상이고, 같은 주소가 서로 다른 계정 5개 이상에 같은 비밀번호(또는 같은 간격의 실패)를 넣음",
+      "evidence": "MITRE ATT&CK T1110.003(Password Spraying): 잠금을 피하려고 흔한 비밀번호 하나를 여러 계정에 대입하며, 한 주소의 다계정 실패가 대표 신호입니다."
+    },
+    {
+      "name": "low_volume_failures",
+      "technique": "T1110",
+      "condition": "T1110 로 분류됐지만 실패가 2~19건이거나 실패 뒤 성공이 있거나 규칙 수준이 10 미만임 (오타·잠금 후 재시도와 구분이 안 되므로 알림만)",
+      "evidence": "MITRE ATT&CK T1110 탐지 안내: 로그인 실패 횟수를 감시하되, 적은 실패는 정상 사용자의 입력 실수와 겹치므로 기준선과 비교해 판단합니다."
+    }
+  ]
+}

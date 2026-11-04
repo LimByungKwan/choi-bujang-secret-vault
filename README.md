@@ -481,3 +481,22 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 ### 한계
 
 탐지 사건은 운영 미연결이며, 회수 재전송은 되돌릴 수 없어 운영에서 시험하지 않았습니다. 로그인이 필요한 금지 요청 중 일부는 미실행입니다.
+
+## 보너스 xdr-01 · 무차별 로그인 공격을 잡아 냅니다
+
+Wazuh 모양 연습 경보(`xdr/fixtures/brute-force.json`, 28건)에서 로그인 실패를 모아 판단하는 모듈입니다. 근거는 MITRE ATT&CK T1110입니다.
+
+- `xdr/brute-force/read-alerts.mjs`: 확인용 읽기 모듈. 시각·주소·계정·규칙 수준·설명만 출력하고 비밀값처럼 보이는 값은 가립니다.
+- `xdr/brute-force/patterns.json`: `same_source_failure_burst`(T1110.001), `password_spraying`(T1110.003), `low_volume_failures`(T1110) 세 패턴과 근거.
+- `xdr/brute-force/decide.mjs`: import·파일 입출력·외부 호출 없이 `decide(alert)`가 `{action, confidence, reason}`을 돌려줍니다. 0.85 이상 `block`, 0.5 이상 `alert`, 그 아래 `record`. 실패 뒤 성공이 있거나 규칙 수준이 10 미만이면 차단까지 가지 않습니다.
+- `xdr/brute-force/respond.mjs`: `block` 결과만 만료 시각(근거 경보 +1시간)과 근거 경보 번호가 붙은 거부 규칙(`deny-rules.json`)으로 만들고, 정상 이벤트가 나온 주소는 제외합니다. `block`·`alert`는 `xdr/alerts.log`에 한 줄씩 쌓습니다(커밋 제외). 판정기 앞에 붙일 `isSourceBlocked()` 확인 부품을 내보내며, `src/decider.mjs`의 기존 규칙은 바꾸지 않았습니다.
+
+다시 실행:
+
+```shell
+node xdr/brute-force/read-alerts.mjs
+npm.cmd run xdr:run -- brute-force
+node xdr/brute-force/respond.mjs
+```
+
+로컬 결과: `block` 10 · `alert` 9 · `record` 9, 정상 이벤트 차단 0건. 시험 경보를 다시 흘리면 명확한 공격 10건만 막히고 나머지 18건은 통과합니다. 판정기 계약(`docs/DECIDER_REQUEST.md`)에는 출발 주소 항목이 없어, 거부 규칙은 실제 판정기 요청에 아직 연결되지 않았습니다. 이 결과는 로컬 연습이며 심판 판정이 아닙니다.

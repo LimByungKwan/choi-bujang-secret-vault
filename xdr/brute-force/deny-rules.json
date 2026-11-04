@@ -1,0 +1,116 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "brute-force",
+  "rules": [
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.10"
+      },
+      "expiresAt": "2026-09-27T01:12:40.000Z",
+      "sourceAlertIds": [
+        "bf-01",
+        "bf-02"
+      ],
+      "reason": "same_source_failure_burst,password_spraying"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.20"
+      },
+      "expiresAt": "2026-09-27T01:14:02.000Z",
+      "sourceAlertIds": [
+        "bf-03"
+      ],
+      "reason": "same_source_failure_burst"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.30"
+      },
+      "expiresAt": "2026-09-27T01:20:11.000Z",
+      "sourceAlertIds": [
+        "bf-04"
+      ],
+      "reason": "same_source_failure_burst"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.21"
+      },
+      "expiresAt": "2026-09-27T01:21:00.000Z",
+      "sourceAlertIds": [
+        "bf-05"
+      ],
+      "reason": "password_spraying"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.44"
+      },
+      "expiresAt": "2026-09-27T03:02:15.000Z",
+      "sourceAlertIds": [
+        "bf-06"
+      ],
+      "reason": "same_source_failure_burst"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.15"
+      },
+      "expiresAt": "2026-09-27T03:05:40.000Z",
+      "sourceAlertIds": [
+        "bf-07"
+      ],
+      "reason": "same_source_failure_burst"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.18"
+      },
+      "expiresAt": "2026-09-27T05:10:02.000Z",
+      "sourceAlertIds": [
+        "bf-08"
+      ],
+      "reason": "same_source_failure_burst"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.8"
+      },
+      "expiresAt": "2026-09-27T06:22:18.000Z",
+      "sourceAlertIds": [
+        "bf-09"
+      ],
+      "reason": "password_spraying"
+    },
+    {
+      "ruleId": "xdr_brute_force_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.40"
+      },
+      "expiresAt": "2026-09-27T07:40:01.000Z",
+      "sourceAlertIds": [
+        "bf-10"
+      ],
+      "reason": "same_source_failure_burst"
+    }
+  ],
+  "skipped": []
+}
