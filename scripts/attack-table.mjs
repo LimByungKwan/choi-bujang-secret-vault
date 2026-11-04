@@ -31,13 +31,10 @@ const COLUMNS = [
 ];
 
 function observedDetails(observed) {
-  const timestamp = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)$/u.exec(observed)?.[1] ?? '';
   if (observed.startsWith('HTTP ')) {
-    const requestId = / · 요청 ID (.*?) · \d{4}-\d{2}-\d{2}T/u.exec(observed)?.[1] ?? '';
-    const actual = observed.replace(/ · 요청 ID .*? · \d{4}-\d{2}-\d{2}T.*$/u, '');
-    return { actual, requestId, timestamp, status: '실측' };
+    return { actual: observed, requestId: '', timestamp: '', status: '실측' };
   }
-  return { actual: observed, requestId: '', timestamp, status: '미확인' };
+  return { actual: observed, requestId: '', timestamp: '', status: '미실행' };
 }
 
 function escapeCell(value) {

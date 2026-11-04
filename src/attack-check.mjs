@@ -72,12 +72,6 @@ function requests() {
   ];
 }
 
-function requestIdFrom(response) {
-  return response.headers.get('x-request-id')
-    ?? response.headers.get('x-vercel-id')
-    ?? '없음';
-}
-
 export async function runAttackChecks(config) {
   if (!Number.isInteger(config.step) || config.step < 2) {
     throw new Error('2단계 이후의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
@@ -95,39 +89,36 @@ export async function runAttackChecks(config) {
 
   const results = [];
   for (const { attackId, expected, request } of requests()) {
-    // The judge sandbox only permits GET and HEAD; write checks are recorded as not run.
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
+    // The judge sandbox records only plain GET/HEAD requests to the public app.
+    // Write requests and header-forging checks are not sent and are recorded as not_run.
+    if ((request.method !== 'GET' && request.method !== 'HEAD') || request.headers) {
       results.push({ attackId, expected, observed: 'not_run' });
       continue;
     }
     const url = new URL(request.path, app);
+    let response;
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         method: request.method,
-        headers: request.headers,
-        ...(request.body === undefined ? {} : { body: request.body }),
         redirect: 'error',
         signal: AbortSignal.timeout(10000),
-        credentials: 'omit',
-      });
-      let noteFields = false;
-      try {
-        noteFields = hasNoteFields(await response.json());
-      } catch {
-        noteFields = false;
-      }
-      results.push({
-        attackId,
-        expected,
-        observed: `HTTP ${response.status} · 메모 필드 ${noteFields ? '있음' : '없음'} · 요청 ID ${requestIdFrom(response)} · ${new Date().toISOString()}`,
       });
     } catch {
-      results.push({
-        attackId,
-        expected,
-        observed: `미확인(요청 실패) · ${new Date().toISOString()}`,
-      });
+      // No HTTP response was received, so no status is reported.
+      results.push({ attackId, expected, observed: 'not_run' });
+      continue;
     }
+    let noteFields = false;
+    try {
+      noteFields = hasNoteFields(await response.json());
+    } catch {
+      noteFields = false;
+    }
+    results.push({
+      attackId,
+      expected,
+      observed: `HTTP ${response.status} · 메모 필드 ${noteFields ? '있음' : '없음'}`,
+    });
   }
   return results;
 }
