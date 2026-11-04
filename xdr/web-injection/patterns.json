@@ -1,0 +1,28 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "web-injection",
+  "source": "MITRE ATT&CK T1190 Exploit Public-Facing Application",
+  "context": "판정에는 doc- 공격 표식, 같은 주소의 반복 횟수(data.count), rule.level을 함께 사용한다. 단어 하나나 수업명만으로는 공격으로 보지 않는다.",
+  "patterns": [
+    {
+      "name": "sql_injection_syntax",
+      "condition": "요청 URL에 doc-sql-chain, doc-sql-or 또는 doc-sql-select-chain 표식이 있다. sql, select 또는 or 단어 하나만으로는 해당하지 않는다.",
+      "evidence": "MITRE ATT&CK T1190은 공개 애플리케이션의 입력 처리 취약점을 악용하는 공격을 다루며, 요청 인자의 결합 SQL 구문은 해당 악용 시도의 표식이다."
+    },
+    {
+      "name": "script_tag",
+      "condition": "요청 URL에 doc-script-marker 표식이 있다. script 수업 단어 하나만으로는 해당하지 않는다.",
+      "evidence": "MITRE ATT&CK T1190은 공개 앱 입력을 통한 악용을 다루며, 요청 인자의 script 태그 구조는 입력 처리 악용을 식별하는 표식이다."
+    },
+    {
+      "name": "repeated_path_traversal",
+      "condition": "요청 URL에 doc-up-repeat 표식이 있다. 단일 up 단어만으로는 해당하지 않는다.",
+      "evidence": "MITRE ATT&CK T1190은 공개 앱의 경로 처리 악용을 포함하며, 반복된 상위 경로 이탈 표기는 파일 경로 경계 우회 시도의 표식이다."
+    },
+    {
+      "name": "command_separator",
+      "condition": "요청 URL에 doc-cmd-separator 표식이 있다. 단독 구분 문자는 반복·수준 조건 없이 공격으로 보지 않는다.",
+      "evidence": "MITRE ATT&CK T1190은 공개 앱 입력이 명령 처리로 이어지는 악용을 다루며, 명령 연결 문맥의 구분자 구조는 해당 입력 표식이다."
+    }
+  ]
+}

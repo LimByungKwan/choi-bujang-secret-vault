@@ -500,3 +500,23 @@ node xdr/brute-force/respond.mjs
 ```
 
 로컬 결과: `block` 10 · `alert` 9 · `record` 9, 정상 이벤트 차단 0건. 시험 경보를 다시 흘리면 명확한 공격 10건만 막히고 나머지 18건은 통과합니다. 판정기 계약(`docs/DECIDER_REQUEST.md`)에는 출발 주소 항목이 없어, 거부 규칙은 실제 판정기 요청에 아직 연결되지 않았습니다. 이 결과는 로컬 연습이며 심판 판정이 아닙니다.
+
+## 보너스 xdr-02 · 웹 주입 공격을 잡아 냅니다
+
+MITRE ATT&CK T1190을 근거로 가상 웹 경보 26건을 분류하는 연습입니다. 요청 URL의 `doc-` 패턴 표식뿐 아니라 같은 주소의 반복 횟수(`data.count`)와 규칙 수준(`rule.level`)을 함께 사용합니다. `sql`, `select`, `script`, `up` 같은 단어 하나나 수업 이름만으로는 공격으로 판정하지 않습니다.
+
+- `xdr/web-injection/read-alerts.mjs`: 가상 경보를 읽고 비밀값처럼 보이는 값은 출력하지 않습니다.
+- `xdr/web-injection/patterns.json`: SQL 구문, script 표식, 반복 경로 이탈, 명령 구분자 패턴과 T1190 근거를 기록합니다.
+- `xdr/web-injection/decide.mjs`: 파일·네트워크 접근 없이 `decide(alert)`가 `{ action, confidence, reason }`을 반환합니다. confidence 0.85 이상은 `block`, 0.5 이상은 `alert`, 그 아래는 `record`입니다.
+- `xdr/web-injection/respond.mjs`: `block` 결과만 문서용 주소의 한 시간짜리 거부 규칙으로 만들고, 같은 주소에서 `record`가 나온 경우는 규칙에서 제외합니다. `block`·`alert`만 `xdr/alerts.log`에 추가합니다.
+- `xdr/web-injection/result.json`과 `xdr/web-injection/deny-rules.json`: 가상 fixture 실행 결과와 거부 규칙입니다.
+
+다시 실행:
+
+```shell
+node xdr/web-injection/read-alerts.mjs
+npm.cmd run xdr:run -- web-injection
+node xdr/web-injection/respond.mjs
+```
+
+로컬 가상 결과는 `block` 7 · `alert` 0 · `record` 19이며, 정상 이벤트 wi-18~wi-26 차단은 0건입니다. 응답 연습에서는 6개 주소 규칙을 만들고 block 경보 7줄을 `xdr/alerts.log`에 추가했습니다. 이 연습은 제공 엔진의 실제 웹 요청 탐지나 접속 차단에 연결되지 않았으며, 운영 보호나 심판 판정을 증명하지 않습니다.
