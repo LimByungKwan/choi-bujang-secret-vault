@@ -435,7 +435,7 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 
 제작 1의 manifest·오프라인 안내·연결 표시와 제작 2의 브라우저 fail-closed UI를 유지합니다. `POST /api/device/registration-options`와 `POST /api/device/registration-verify`가 WebAuthn 등록을 처리하고, 등록된 자격 증명은 `pending`으로 저장됩니다. `POST /api/device/challenge`와 `POST /api/device/verify`는 일회용 challenge/assertion으로 상태를 확인합니다. 승인 상태가 `approved`인 자격 증명의 유효한 assertion이 확인된 경우에만 `/api/notes`, `/api/notes/{id}`, `/api/notes/restore`가 메모 행에 접근합니다. 기존 Supabase Auth·HttpOnly 쿠키·CSRF 검사와 `owner_id` 필터는 유지됩니다. 거부·회수·미등록·검증 오류는 거부합니다.
 
-`GET /api/device/admin`은 대기 요청만 반환하고 `POST /api/device/admin`은 승인·거부·회수를 처리합니다. 두 관리자 동작 모두 서버에서 Supabase 사용자 UUID가 `DEVICE_APPROVAL_ADMIN_USER_IDS` 허용목록에 있는지 확인합니다. 이 환경변수는 Vercel에 저장 완료했지만 실제 WebAuthn 등록·승인과 운영 API 동작은 아직 검증하지 않았습니다. 등록 UI는 사용자의 인증기에서 공개키 증거를 받고, 개인키는 인증기 밖으로 내보내거나 웹 저장소에 저장하지 않습니다. WebAuthn은 승인된 인증 자격 증명의 소유 증거이며, 동기화형 패스키일 수 있어 물리 기기의 고유성이나 복제 불가를 보장하지 않습니다.
+`GET /api/device/admin`은 대기 요청만 반환하고 `POST /api/device/admin`은 승인·거부·회수를 처리합니다. 두 관리자 동작 모두 서버에서 Supabase 사용자 UUID가 `DEVICE_APPROVAL_ADMIN_USER_IDS` 허용목록에 있는지 확인합니다. 이 환경변수는 Vercel에 저장 완료했고, 운영에서 실제 WebAuthn 등록과 관리자 API 승인 동작을 직접 확인했습니다. 심판 판정은 **미확인**입니다. 등록 UI는 사용자의 인증기에서 공개키 증거를 받고, 개인키는 인증기 밖으로 내보내거나 웹 저장소에 저장하지 않습니다. WebAuthn은 승인된 인증 자격 증명의 소유 증거이며, 동기화형 패스키일 수 있어 물리 기기의 고유성이나 복제 불가를 보장하지 않습니다.
 
 보호 API 요청은 assertion용 WebAuthn challenge 발급 시 HTTP method, 정규화한 경로·query, 정규화한 JSON 본문 SHA-256을 함께 저장합니다. assertion 검증 시 현재 요청의 동일 값이 DB에 저장된 값과 모두 일치해야 challenge가 원자적으로 소비됩니다. 누락·변경·만료·재사용은 거부됩니다.
 
@@ -445,4 +445,4 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 
 검증: 자동 테스트는 WebAuthn 검증기를 모의해 등록 대기, 승인·거부·회수, 오류 시 거부, 인증 없이 메모 API 직접 호출 차단, 기존 인증·CSRF·A/B 소유권·복구 회귀를 확인합니다. 이 결과는 실제 인증기·운영 DB·공식 심판 판정을 뜻하지 않습니다.
 
-로컬 `npm test` 실행 결과: 340/340 통과, 실패 0. 운영 연동 및 심판 검증은 하지 않았습니다.
+로컬 `npm test` 실행 결과: 346/346 통과, 실패 0. 운영 등록·승인은 직접 확인했고, 심판 판정은 **미확인**입니다.
