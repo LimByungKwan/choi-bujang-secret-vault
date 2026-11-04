@@ -411,15 +411,19 @@ DB RPC migration은 `learning_notes`의 기존 ID·소유자·제목·본문을 
 
 1. **공식 제작 1 — 로컬 정책 스냅샷:** `npm.cmd run policy:test`에서 10/10 PASS. 기준 정책 사본 해시, 시험 사본 변조 diff, 누락·변조 시 중단, 원본 및 백업 보존을 격리 테스트로 확인했습니다.
 2. **공식 제작 2 — 시험 정책 복원:** 같은 10개 테스트에서 preview/승인값 확인, 승인 누락·오류·미리보기 후 변경 거부, 격리 사본의 단일 파일 복원과 다른 파일 보존을 확인했습니다. 실제 운영 정책은 변경하지 않았습니다.
-3. **공식 제작 3 — B 가상 메모 백업/복원:** Store, Reader, 서명, private Storage adapter와 내부 `POST /api/notes/restore`의 합성 데이터 테스트가 있습니다. 가짜 DB/Storage에서 ID·owner·콘텐츠 해시 검증 및 다른 소유자 충돌 거부를 확인하지만, **운영 B 메모 백업·POST 복원은 미실행**입니다. 실제 백업이 없어 원본 변경·삭제는 금지 상태입니다.
-4. **공식 제작 4 — 회귀 기록:** 다음 순서로 로컬 검증했습니다.
-   - `npm.cmd run decider:test`: 4개 가상 요청 통과.
-   - `npm.cmd run detect:test`: 6개 가상 사건 통과.
+3. **공식 제작 3 — B 가상 메모 백업/복원:** 복원 대상은 시험 계정 B의 가상 메모 중 `notes[0].id`로 지정한 한 건입니다. 실제 UUID·제목·본문은 Git, README, 로그에 기록하지 않습니다. 복원 전 비공개 백업을 다시 검증하고 지정 ID, B 계정 `owner_id`, 제목·본문 SHA-256 해시가 검증된 사본과 모두 일치하며 현재 상태도 예상한 경우에만 진행합니다. 어느 값이든 다르거나 예상 밖 현재 상태가 있으면 즉시 중단합니다. 지정 메모 한 건만 조건부 복원하며 다른 메모와 기존 감사 기록은 변경·삭제하지 않습니다. 복원 후 같은 ID·owner·내용 해시를 백업과 다시 비교하고 신규 감사 기록을 확인합니다. 실제 확인 결과는 운영 DB 비공개 백업 1건의 원본 일치와 `restore_learning_note`의 `no_change`(Rollback)뿐입니다. **변조된 B 메모의 실제 복원과 서명된 Storage 기반 POST 복원은 미실행**입니다.
+4. **공식 제작 4 — 회귀 기록:** 복원 전 확인 결과:
+   - 로컬 테스트 `npm.cmd test`: 299/299 통과.
+   - `npm.cmd run decider:test`: 가상 요청 4건 통과.
+   - `npm.cmd run detect:test`: 가상 사건 6건 통과.
    - `npm.cmd run policy:test`: 10/10 통과.
-   - `npm.cmd test`: 299개 전체 자동 테스트 통과.
-   - `npm.cmd run build -- --local`: 성공. 운영 배포나 실제 API 요청은 검증하지 않습니다.
-   - 새 임시 clone에서 `npm.cmd install`: 성공, npm audit 취약점 0건. 이어 `npm.cmd test` 299/299 및 local build 성공.
-   - `npm.cmd run bundle`: 미완료. 제출 금지된 미커밋 변경을 감지해 첫 안전 검사에서 종료했고, 운영 API 자기 점검은 호출하지 않았으며 제출 JSON도 생성하지 않았습니다.
+   - 로컬 빌드 성공, 배포 상태 Ready.
+   - 운영 비로그인 `GET /api/notes`와 `POST /api/notes/restore`: HTTP 401.
+
+   복원 후에는 다음 순서로 시험해야 합니다. **세 항목 모두 미실행**이며 PASS로 간주하지 않습니다.
+   1. 인증된 정상 A/B 사용자의 자기 메모 조회와 허용 요청.
+   2. 비로그인 접근, 타인 소유 메모 접근, 미등록 기기, step-up 미충족, 금지 경로 등 1~9단계 금지 요청의 거부.
+   3. 다른 메모 불변 및 기존 감사 기록 보존, 신규 복원 감사 기록 확인.
 
 복구 내부 경로는 `POST /api/notes/restore`이며 `aleph.config.json`의 `restoreRoute` 문자열에 기록합니다. 이는 프로젝트가 정한 내부 구현이며 **심판의 route·호출자·JSON 계약으로 확인되지 않았습니다**. 기존 `allowedRoutes`와 인증 정책은 보존하며, 공식 심판 자료에서 계약을 확인하기 전에는 심판이 이 경로를 호출한다고 가정하지 마세요.
 
