@@ -117,7 +117,7 @@ export async function runAttackChecks(config) {
     results.push({
       attackId,
       expected,
-      observed: `HTTP ${response.status} · 메모 필드 ${noteFields ? '있음' : '없음'}`,
+      observed: `${noteFields ? '비로그인 요청에서 메모 응답이 확인됨' : '비로그인 요청에서 메모 응답이 보이지 않음'} (HTTP ${response.status})`,
     });
   }
   return results;
