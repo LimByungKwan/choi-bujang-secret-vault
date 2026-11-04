@@ -43,6 +43,29 @@ async function collectCounts(supabase, table, column, values) {
   return Object.fromEntries(entries);
 }
 
+async function collectRestoreSummary(supabase) {
+  const counts = Object.fromEntries(RESTORE_OUTCOMES.map(outcome => [outcome, 0]));
+  const { data, error } = await supabase.rpc('learning_note_restore_audit_summary');
+  if (error || !Array.isArray(data)) throw new Error('OPS_SUMMARY_QUERY_FAILED');
+
+  let latestAt = null;
+  for (const row of data) {
+    if (!row || !Object.hasOwn(counts, row.outcome)
+        || !Number.isSafeInteger(row.outcome_count) || row.outcome_count < 0
+        || (row.latest_at !== null
+          && (typeof row.latest_at !== 'string'
+            || !Number.isFinite(Date.parse(row.latest_at))))) {
+      throw new Error('OPS_SUMMARY_QUERY_FAILED');
+    }
+    counts[row.outcome] = row.outcome_count;
+    if (row.latest_at !== null
+        && (latestAt === null || Date.parse(row.latest_at) > Date.parse(latestAt))) {
+      latestAt = row.latest_at;
+    }
+  }
+  return { outcomes: counts, latestAt };
+}
+
 export function createOpsSummaryHandler({
   env = process.env,
   createVerifier = createLoginVerifier,
@@ -91,31 +114,18 @@ export function createOpsSummaryHandler({
         return send(response, 403, { error: 'FORBIDDEN' });
       }
 
-      const [revocation, outcomes, latestAudit] = await Promise.all([
+      const [revocation, restore] = await Promise.all([
         collectCounts(
           supabase,
           'device_approval_credentials',
           'status',
           CREDENTIAL_STATUSES,
-        ),
-        collectCounts(
-          supabase,
-          'learning_note_restore_audit',
-          'outcome',
-          RESTORE_OUTCOMES,
-        ),
-        supabase.from('learning_note_restore_audit')
-          .select('created_at')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        ).then(counts => ({ source: 'api_measured', counts }))
+          .catch(() => ({ source: 'query_failed' })),
+        collectRestoreSummary(supabase)
+          .then(summary => ({ source: 'api_measured', ...summary }))
+          .catch(() => ({ source: 'query_failed' })),
       ]);
-      if (latestAudit.error
-          || (latestAudit.data !== null
-            && (typeof latestAudit.data?.created_at !== 'string'
-              || !Number.isFinite(Date.parse(latestAudit.data.created_at))))) {
-        throw new Error('OPS_SUMMARY_QUERY_FAILED');
-      }
 
       const commitSha = env.VERCEL_GIT_COMMIT_SHA;
       return send(response, 200, {
@@ -127,12 +137,8 @@ export function createOpsSummaryHandler({
         sections: {
           decider: { source: 'code_static', rules: RULE_IDS },
           detect: { source: 'not_connected', events: null },
-          revocation: { source: 'api_measured', counts: revocation },
-          restore: {
-            source: 'api_measured',
-            outcomes,
-            latestAt: latestAudit.data?.created_at ?? null,
-          },
+          revocation,
+          restore,
         },
       });
     } catch {

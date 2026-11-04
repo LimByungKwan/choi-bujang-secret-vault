@@ -13,7 +13,11 @@ const noteTitle = 'synthetic private note title';
 const noteBody = 'synthetic private note body';
 const latestAt = '2026-11-04T10:20:30.000Z';
 
-function createDatabase({ fail = false } = {}) {
+function createDatabase({
+  failCredentials = false,
+  failRestoreRpc = false,
+  rpcData,
+} = {}) {
   const credentials = [
     { status: 'pending', credential_id: credentialMarker, owner_id: studentId },
     { status: 'pending', credential_id: 'credential-2', owner_id: studentId },
@@ -32,15 +36,14 @@ function createDatabase({ fail = false } = {}) {
     { outcome: 'rejected', created_at: '2026-11-04T10:00:00.000Z', actor_id: studentId, backup_ref: backupMarker, title: noteTitle, content: noteBody },
   ];
   const calls = [];
+  const fromCalls = [];
+  const rpcCalls = [];
   const supabase = {
     from(table) {
-      let column;
+      fromCalls.push(table);
       let filters = [];
-      let ordered = false;
-      let limit = null;
       const query = {
         select(selected, options) {
-          column = selected;
           calls.push({ table, selected, options });
           return query;
         },
@@ -48,41 +51,43 @@ function createDatabase({ fail = false } = {}) {
           filters.push([key, value]);
           return query;
         },
-        order(key, options) {
-          assert.equal(key, 'created_at');
-          assert.deepEqual(options, { ascending: false });
-          ordered = true;
-          return query;
-        },
-        limit(value) {
-          limit = value;
-          return query;
-        },
-        async maybeSingle() {
-          const result = await query.execute();
-          return { data: result.data?.[0] ?? null, error: result.error };
-        },
         then(resolve, reject) {
           return query.execute().then(resolve, reject);
         },
         async execute() {
-          if (fail) return { data: null, count: null, error: new Error('synthetic database failure') };
-          const rows = table === 'device_approval_credentials' ? credentials : audits;
-          const filtered = rows.filter(row => filters.every(([key, value]) => row[key] === value));
-          if (ordered) {
-            return {
-              data: filtered.sort((left, right) => right.created_at.localeCompare(left.created_at))
-                .slice(0, limit),
-              error: null,
-            };
+          if (failCredentials && table === 'device_approval_credentials') {
+            return { data: null, count: null, error: new Error('synthetic credentials query failure') };
           }
+          const rows = credentials;
+          const filtered = rows.filter(row => filters.every(([key, value]) => row[key] === value));
           return { data: null, count: filtered.length, error: null };
         },
       };
       return query;
     },
+    async rpc(name) {
+      rpcCalls.push(name);
+      assert.equal(name, 'learning_note_restore_audit_summary');
+      if (failRestoreRpc) {
+        return { data: null, error: new Error('synthetic restore RPC failure') };
+      }
+      if (rpcData !== undefined) return { data: rpcData, error: null };
+      const outcomes = new Map();
+      for (const audit of audits) {
+        const summary = outcomes.get(audit.outcome) ?? { outcome_count: 0, latest_at: null };
+        summary.outcome_count += 1;
+        if (summary.latest_at === null || audit.created_at > summary.latest_at) {
+          summary.latest_at = audit.created_at;
+        }
+        outcomes.set(audit.outcome, summary);
+      }
+      return {
+        data: [...outcomes].map(([outcome, summary]) => ({ outcome, ...summary })),
+        error: null,
+      };
+    },
   };
-  return { supabase, calls };
+  return { supabase, calls, fromCalls, rpcCalls };
 }
 
 function createHarness({
@@ -139,12 +144,77 @@ test('rejects unauthenticated, non-admin, and non-GET requests', async () => {
   assert.equal(wrongMethod.calls.length, 0);
 });
 
-test('returns 503 when a database count query fails', async () => {
-  const harness = createHarness({ database: createDatabase({ fail: true }) });
+test('empty restore RPC results return zero counts and no latest timestamp', async () => {
+  const harness = createHarness({ database: createDatabase({ rpcData: [] }) });
   const response = await invoke(harness.handler);
-  assert.equal(response.statusCode, 503);
-  assert.deepEqual(response.body, { error: 'OPS_SUMMARY_UNAVAILABLE' });
-  assert.match(response.headers.get('x-request-id'), /^[0-9a-f-]{36}$/u);
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body.sections.restore, {
+    source: 'api_measured',
+    outcomes: {
+      restored: 0,
+      no_change: 0,
+      conflict: 0,
+      not_owned: 0,
+      failed: 0,
+      rejected: 0,
+    },
+    latestAt: null,
+  });
+  assert.deepEqual(harness.fromCalls, [
+    'device_approval_credentials',
+    'device_approval_credentials',
+    'device_approval_credentials',
+    'device_approval_credentials',
+  ]);
+  assert.deepEqual(harness.rpcCalls, ['learning_note_restore_audit_summary']);
+});
+
+test('restore RPC failure affects only the restore section', async () => {
+  const harness = createHarness({ database: createDatabase({ failRestoreRpc: true }) });
+  const response = await invoke(harness.handler);
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body.sections.revocation, {
+    source: 'api_measured',
+    counts: { pending: 2, approved: 1, rejected: 2, revoked: 1 },
+  });
+  assert.deepEqual(response.body.sections.restore, { source: 'query_failed' });
+});
+
+test('credential query failure affects only the revocation section', async () => {
+  const harness = createHarness({ database: createDatabase({ failCredentials: true }) });
+  const response = await invoke(harness.handler);
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body.sections.revocation, { source: 'query_failed' });
+  assert.deepEqual(response.body.sections.restore, {
+    source: 'api_measured',
+    outcomes: {
+      restored: 1,
+      no_change: 2,
+      conflict: 1,
+      not_owned: 1,
+      failed: 1,
+      rejected: 1,
+    },
+    latestAt,
+  });
+});
+
+test('unknown restore outcomes and non-numeric counts fail only the restore section', async t => {
+  for (const [name, rpcData] of [
+    ['unknown outcome', [{ outcome: 'unexpected', outcome_count: 1, latest_at: latestAt }]],
+    ['non-numeric count', [{ outcome: 'restored', outcome_count: '1', latest_at: latestAt }]],
+  ]) {
+    await t.test(name, async () => {
+      const harness = createHarness({ database: createDatabase({ rpcData }) });
+      const response = await invoke(harness.handler);
+      assert.equal(response.statusCode, 200);
+      assert.deepEqual(response.body.sections.restore, { source: 'query_failed' });
+      assert.deepEqual(response.body.sections.revocation, {
+        source: 'api_measured',
+        counts: { pending: 2, approved: 1, rejected: 2, revoked: 1 },
+      });
+    });
+  }
 });
 
 test('returns measured counts and excludes private audit and credential fields', async () => {
@@ -180,18 +250,14 @@ test('returns measured counts and excludes private audit and credential fields',
     },
     latestAt,
   });
-  assert.equal(harness.calls.length, 11);
+  assert.equal(harness.calls.length, 4);
+  assert.equal(harness.fromCalls.includes('learning_note_restore_audit'), false);
+  assert.deepEqual(harness.rpcCalls, ['learning_note_restore_audit_summary']);
   assert.ok(harness.calls.every(call => {
-    if (call.table === 'device_approval_credentials') {
-      return call.selected === 'status'
-        && call.options?.count === 'exact'
-        && call.options?.head === true;
-    }
-    return call.table === 'learning_note_restore_audit'
-      && ((call.selected === 'outcome'
-        && call.options?.count === 'exact'
-        && call.options?.head === true)
-        || (call.selected === 'created_at' && call.options === undefined));
+    return call.table === 'device_approval_credentials'
+      && call.selected === 'status'
+      && call.options?.count === 'exact'
+      && call.options?.head === true;
   }));
 
   const json = JSON.stringify(response.body);

@@ -84,29 +84,35 @@ function renderOpsSummary(data, headerRequestId) {
     api_measured: '실측',
     code_static: '코드 기준',
     not_connected: '미연결',
+    query_failed: '확인 실패',
   };
   if (!sections || !Array.isArray(sections.decider?.rules)
       || sections.decider.source !== 'code_static'
       || sections.detect?.source !== 'not_connected'
       || sections.detect.events !== null
-      || sections.revocation?.source !== 'api_measured'
-      || sections.restore?.source !== 'api_measured'
+      || !['api_measured', 'query_failed'].includes(sections.revocation?.source)
+      || !['api_measured', 'query_failed'].includes(sections.restore?.source)
       || typeof data.requestId !== 'string'
       || typeof data.checkedAt !== 'string'
       || typeof data.commit !== 'string') {
     return false;
   }
 
-  const revocation = countSummary(sections.revocation.counts, [
-    ['pending', '대기'], ['approved', '승인'], ['rejected', '거부'], ['revoked', '회수'],
-  ]);
-  const outcomes = countSummary(sections.restore.outcomes, [
-    ['restored', '복구'], ['no_change', '변경 없음'], ['conflict', '충돌'],
-    ['not_owned', '소유자 불일치'], ['failed', '실패'], ['rejected', '거부'],
-  ]);
+  const revocation = sections.revocation.source === 'query_failed'
+    ? '확인 실패'
+    : countSummary(sections.revocation.counts, [
+      ['pending', '대기'], ['approved', '승인'], ['rejected', '거부'], ['revoked', '회수'],
+    ]);
+  const outcomes = sections.restore.source === 'query_failed'
+    ? '확인 실패'
+    : countSummary(sections.restore.outcomes, [
+      ['restored', '복구'], ['no_change', '변경 없음'], ['conflict', '충돌'],
+      ['not_owned', '소유자 불일치'], ['failed', '실패'], ['rejected', '거부'],
+    ]);
   if (!revocation || !outcomes
       || !sections.decider.rules.every(rule => typeof rule === 'string')
-      || (sections.restore.latestAt !== null
+      || (sections.restore.source === 'api_measured'
+        && sections.restore.latestAt !== null
         && (typeof sections.restore.latestAt !== 'string'
           || !Number.isFinite(Date.parse(sections.restore.latestAt))))) {
     return false;
@@ -115,9 +121,9 @@ function renderOpsSummary(data, headerRequestId) {
   opsSummaryValues.decider.textContent = sections.decider.rules.join(' · ');
   opsSummaryValues.detect.textContent = '미연결';
   opsSummaryValues.revocation.textContent = revocation;
-  opsSummaryValues.restore.textContent = `${outcomes} · 최근 기록 ${
-    sections.restore.latestAt ?? '없음'
-  }`;
+  opsSummaryValues.restore.textContent = sections.restore.source === 'query_failed'
+    ? outcomes
+    : `${outcomes} · 최근 기록 ${sections.restore.latestAt ?? '없음'}`;
   for (const [section, element] of Object.entries(opsSummarySources)) {
     element.textContent = sourceLabels[sections[section].source];
   }
