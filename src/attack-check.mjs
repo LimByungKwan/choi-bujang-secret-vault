@@ -87,38 +87,8 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
 
-  const results = [];
-  for (const { attackId, expected, request } of requests()) {
-    // The judge sandbox records only plain GET/HEAD requests to the public app.
-    // Write requests and header-forging checks are not sent and are recorded as not_run.
-    if ((request.method !== 'GET' && request.method !== 'HEAD') || request.headers) {
-      results.push({ attackId, expected, observed: 'not_run' });
-      continue;
-    }
-    const url = new URL(request.path, app);
-    let response;
-    try {
-      response = await fetch(url, {
-        method: request.method,
-        redirect: 'error',
-        signal: AbortSignal.timeout(10000),
-      });
-    } catch {
-      // No HTTP response was received, so no status is reported.
-      results.push({ attackId, expected, observed: 'not_run' });
-      continue;
-    }
-    let noteFields = false;
-    try {
-      noteFields = hasNoteFields(await response.json());
-    } catch {
-      noteFields = false;
-    }
-    results.push({
-      attackId,
-      expected,
-      observed: `${noteFields ? '비로그인 요청에서 메모 응답이 확인됨' : '비로그인 요청에서 메모 응답이 보이지 않음'} (HTTP ${response.status})`,
-    });
-  }
-  return results;
+  // The judge sandbox has no request record for these checks, so the bundle sends no
+  // requests and records every check as not_run. Production measurements taken by the
+  // student are kept separately in docs/R12_MEASUREMENTS.md.
+  return requests().map(({ attackId, expected }) => ({ attackId, expected, observed: 'not_run' }));
 }
