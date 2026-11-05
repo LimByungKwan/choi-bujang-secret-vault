@@ -584,3 +584,27 @@ node xdr/privilege/respond.mjs
 로컬 가상 결과는 `block` 9 · `alert` 8 · `record` 9이며, 경보 설명으로 정상 이벤트로 본 pv-18~pv-26의 차단은 0건입니다. 저장소에 정답이 없어 이 건수가 정답인지는 확인되지 않았고, 패턴은 같은 경보를 읽고 작성했습니다. 응답 연습에서는 8개 세션 규칙을 만들고 실행 1회당 17줄을 `xdr/alerts.log`에 추가합니다. 규칙 만료 시각은 경보 시각 기준이라 현재 시계로는 이미 지났습니다. 판정기 계약(`docs/DECIDER_REQUEST.md`)에는 `srcuser`·`srcip` 항목이 없어 거부 규칙은 실제 판정기 요청에 연결되지 않았습니다. 이 연습은 제공 엔진의 실제 탐지나 접속 차단을 증명하지 않으며, 심판 판정이 아닙니다.
 
 `npm.cmd test`는 이 저장점에서도 360개 중 356개 통과, 4개 실패입니다. 실패는 xdr-04와 같은 `attack-check` 점검 시험 4개이며 원인은 아직 확인하지 못했습니다.
+
+## 보너스 xdr-06 · 자료 빼돌리기를 잡아 냅니다
+
+MITRE ATT&CK T1041(명령 통로로 반출)과 T1048(다른 프로토콜로 반출)을 근거로 가상 경보 30건을 분류하는 연습입니다. T1041·T1048 표시만으로는 공격으로 보지 않으며, 대용량 기준 5천만 바이트는 이 수업 연습에서 정한 값입니다. 업무 시간 밖 여부는 `timestamp`가 아니라 설명 문구로 판단합니다.
+
+- `xdr/exfiltration/read-alerts.mjs`: 확인용 읽기 모듈. 시각·주소·계정·규칙 수준·설명만 출력하고 비밀값처럼 보이는 값은 가립니다.
+- `xdr/exfiltration/patterns.json`: 처음 보는 목적지로의 대용량 전송, 업무 시간 밖 압축 파일 전송, 같은 목적지 반복 전송, 대량 파일 전송, 평소 쓰지 않던 포트, 명령 통로, 검토 대상(알림 전용) 일곱 패턴과 근거.
+- `xdr/exfiltration/decide.mjs`: import·파일 입출력·외부 호출 없이 `decide(alert)`가 `{ action, confidence, reason }`을 반환합니다. 뚜렷한 패턴과 수준 10 이상, 5천만 바이트 이상, 목적지 있음을 모두 만족해야 `block`이고, T1041·T1048 표시에 수준 5~9면 `alert`, 나머지는 `record`입니다. 취소·실패·"없습니다"·"아닙니다"가 있으면 뚜렷한 패턴으로 치지 않습니다. 경보 id·주소·계정·시각은 판단에 쓰지 않습니다.
+- `xdr/exfiltration/respond.mjs`: `block` 결과만 목적지(`dstip`)별 거부 규칙(`deny-rules.json`)으로 묶고 근거 경보 번호와 만료 시각(마지막 경보 +1시간)을 붙입니다. `record`·`alert` 경보에 나온 목적지는 제외합니다. 계정으로 막지 않습니다. `block`·`alert`만 `xdr/alerts.log`에 추가합니다(커밋 제외). 실행할 때마다 같은 줄이 다시 쌓입니다. `src/decider.mjs`의 기존 규칙은 바꾸지 않았습니다.
+- `xdr/exfiltration/result.json`과 `xdr/exfiltration/deny-rules.json`: 가상 fixture 실행 결과와 거부 규칙입니다.
+
+다시 실행:
+
+```shell
+node xdr/exfiltration/read-alerts.mjs
+npm.cmd run xdr:run -- exfiltration
+node xdr/exfiltration/respond.mjs
+```
+
+로컬 가상 결과는 `block` 10 · `alert` 10 · `record` 10이며, 경보 설명으로 정상 이벤트로 본 ex-21~ex-30의 차단은 0건입니다. T1048 표시가 붙은 정상 동기화 ex-23은 `record`이고, ex-13·ex-18은 `alert`입니다. 저장소에 정답이 없어 이 건수가 정답인지는 확인되지 않았고, 패턴은 같은 경보를 읽고 작성했습니다. 응답 연습에서는 8개 목적지 규칙을 만들고 실행 1회당 20줄을 `xdr/alerts.log`에 추가합니다. 규칙 만료 시각은 경보 시각 기준이라 현재 시계로는 이미 지났습니다. 판정기 계약(`docs/DECIDER_REQUEST.md`)에는 `dstip` 항목이 없어 거부 규칙은 실제 판정기 요청에 연결되지 않았습니다. 이 연습은 제공 엔진의 실제 탐지나 접속 차단을 증명하지 않으며, 심판 판정이 아닙니다.
+
+알려진 불일치: `patterns.json`의 검토 패턴 조건은 "수준 5 이상"이지만 `decide.mjs`는 요청대로 수준 5~9만 `alert`로 처리해, 뚜렷한 패턴 없는 수준 10 이상 경보는 `record`가 됩니다. 이번 30건에는 해당 경보가 없어 결과에 영향이 없습니다.
+
+`npm.cmd test`는 이 저장점에서도 360개 중 356개 통과, 4개 실패입니다. 실패는 xdr-04와 같은 `attack-check` 점검 시험 4개이며 원인은 아직 확인하지 못했습니다.

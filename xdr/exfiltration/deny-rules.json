@@ -1,0 +1,97 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "exfiltration",
+  "rules": [
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "203.0.113.50"
+      },
+      "expiresAt": "2026-09-27T02:05:14.000Z",
+      "alertIds": [
+        "ex-01",
+        "ex-03"
+      ]
+    },
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "198.51.100.40"
+      },
+      "expiresAt": "2026-09-27T02:20:07.000Z",
+      "alertIds": [
+        "ex-02",
+        "ex-04"
+      ]
+    },
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "203.0.113.55"
+      },
+      "expiresAt": "2026-09-27T03:04:26.000Z",
+      "alertIds": [
+        "ex-05"
+      ]
+    },
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "192.0.2.90"
+      },
+      "expiresAt": "2026-09-27T04:02:19.000Z",
+      "alertIds": [
+        "ex-06"
+      ]
+    },
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "198.51.100.45"
+      },
+      "expiresAt": "2026-09-27T05:12:08.000Z",
+      "alertIds": [
+        "ex-07"
+      ]
+    },
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "203.0.113.60"
+      },
+      "expiresAt": "2026-09-27T06:03:41.000Z",
+      "alertIds": [
+        "ex-08"
+      ]
+    },
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "203.0.113.61"
+      },
+      "expiresAt": "2026-09-27T07:08:12.000Z",
+      "alertIds": [
+        "ex-09"
+      ]
+    },
+    {
+      "ruleId": "xdr_exfiltration_block",
+      "effect": "deny",
+      "match": {
+        "dstip": "198.51.100.46"
+      },
+      "expiresAt": "2026-09-27T08:01:05.000Z",
+      "alertIds": [
+        "ex-10"
+      ]
+    }
+  ],
+  "skipped": []
+}

@@ -1,0 +1,191 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "exfiltration",
+  "decisions": [
+    {
+      "alertId": "ex-01",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "large_transfer_to_unfamiliar_destination, bulk_file_transfer"
+    },
+    {
+      "alertId": "ex-02",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "large_transfer_to_unfamiliar_destination, off_hours_archive_exfiltration"
+    },
+    {
+      "alertId": "ex-03",
+      "action": "block",
+      "confidence": 0.86,
+      "reason": "repeated_large_transfer_same_destination"
+    },
+    {
+      "alertId": "ex-04",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "bulk_file_transfer, unusual_port_transfer"
+    },
+    {
+      "alertId": "ex-05",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "large_transfer_to_unfamiliar_destination, bulk_file_transfer"
+    },
+    {
+      "alertId": "ex-06",
+      "action": "block",
+      "confidence": 0.87,
+      "reason": "repeated_large_transfer_same_destination"
+    },
+    {
+      "alertId": "ex-07",
+      "action": "block",
+      "confidence": 0.86,
+      "reason": "large_transfer_to_unfamiliar_destination"
+    },
+    {
+      "alertId": "ex-08",
+      "action": "block",
+      "confidence": 0.87,
+      "reason": "bulk_file_transfer"
+    },
+    {
+      "alertId": "ex-09",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "large_transfer_to_unfamiliar_destination, repeated_large_transfer_same_destination, c2_channel_large_transfer"
+    },
+    {
+      "alertId": "ex-10",
+      "action": "block",
+      "confidence": 0.87,
+      "reason": "large_transfer_to_unfamiliar_destination"
+    },
+    {
+      "alertId": "ex-11",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-12",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-13",
+      "action": "alert",
+      "confidence": 0.5,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-14",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-15",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-16",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-17",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-18",
+      "action": "alert",
+      "confidence": 0.5,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-19",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-20",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "unverified_transfer_review"
+    },
+    {
+      "alertId": "ex-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-25",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-26",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-27",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-28",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-29",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ex-30",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    }
+  ],
+  "counts": {
+    "block": 10,
+    "alert": 10,
+    "record": 10
+  }
+}
