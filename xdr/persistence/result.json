@@ -1,0 +1,155 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "persistence",
+  "decisions": [
+    {
+      "alertId": "ps-01",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "temp_binary_autostart, unsigned_service_binary"
+    },
+    {
+      "alertId": "ps-02",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "temp_binary_autostart, unfamiliar_autostart_entry"
+    },
+    {
+      "alertId": "ps-03",
+      "action": "block",
+      "confidence": 0.86,
+      "reason": "unfamiliar_autostart_entry"
+    },
+    {
+      "alertId": "ps-04",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "unsigned_service_binary, unsigned_service_burst"
+    },
+    {
+      "alertId": "ps-05",
+      "action": "block",
+      "confidence": 0.85,
+      "reason": "temp_binary_autostart"
+    },
+    {
+      "alertId": "ps-06",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "temp_binary_autostart, unsigned_service_binary"
+    },
+    {
+      "alertId": "ps-07",
+      "action": "block",
+      "confidence": 0.89,
+      "reason": "temp_binary_autostart, multi_autostart_same_binary"
+    },
+    {
+      "alertId": "ps-08",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "temp_binary_autostart, unfamiliar_autostart_entry"
+    },
+    {
+      "alertId": "ps-09",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-10",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-11",
+      "action": "alert",
+      "confidence": 0.5,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-12",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-13",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-14",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-15",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-16",
+      "action": "alert",
+      "confidence": 0.5,
+      "reason": "unverified_autostart_review"
+    },
+    {
+      "alertId": "ps-17",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ps-18",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ps-19",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ps-20",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ps-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ps-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ps-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    },
+    {
+      "alertId": "ps-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "no_pattern_match"
+    }
+  ],
+  "counts": {
+    "block": 8,
+    "alert": 8,
+    "record": 8
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "persistence",
+  "rules": [
+    {
+      "ruleId": "xdr_persistence_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.12"
+      },
+      "expiresAt": "2026-09-27T01:19:12.000Z",
+      "alertIds": [
+        "ps-01",
+        "ps-02"
+      ]
+    },
+    {
+      "ruleId": "xdr_persistence_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.12"
+      },
+      "expiresAt": "2026-09-27T02:06:28.000Z",
+      "alertIds": [
+        "ps-03"
+      ]
+    },
+    {
+      "ruleId": "xdr_persistence_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.12"
+      },
+      "expiresAt": "2026-09-27T02:22:03.000Z",
+      "alertIds": [
+        "ps-04"
+      ]
+    },
+    {
+      "ruleId": "xdr_persistence_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.19"
+      },
+      "expiresAt": "2026-09-27T03:09:17.000Z",
+      "alertIds": [
+        "ps-05"
+      ]
+    },
+    {
+      "ruleId": "xdr_persistence_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.19"
+      },
+      "expiresAt": "2026-09-27T05:07:45.000Z",
+      "alertIds": [
+        "ps-06"
+      ]
+    },
+    {
+      "ruleId": "xdr_persistence_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.19"
+      },
+      "expiresAt": "2026-09-27T06:14:08.000Z",
+      "alertIds": [
+        "ps-07"
+      ]
+    },
+    {
+      "ruleId": "xdr_persistence_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.33"
+      },
+      "expiresAt": "2026-09-27T07:28:31.000Z",
+      "alertIds": [
+        "ps-08"
+      ]
+    }
+  ],
+  "skipped": []
+}

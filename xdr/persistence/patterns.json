@@ -1,0 +1,38 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "persistence",
+  "source": "MITRE ATT&CK T1543 Create or Modify System Process (T1543.003 Windows Service) / T1053 Scheduled Task/Job (T1053.005 Scheduled Task)",
+  "context": "판정에는 실행 파일 경로(data.path), 반복 횟수(data.count), rule.level, rule.mitre, 설명(rule.description)의 서명·친숙도 표현을 함께 사용한다. 서비스나 예약 작업이 있다는 사실만으로는 공격으로 보지 않는다. 수업 도구도 같은 방식으로 등록되기 때문이다.",
+  "patterns": [
+    {
+      "name": "temp_binary_autostart",
+      "condition": "서비스·예약 작업·시작 항목 같은 자동 실행 수단이 임시 폴더(Temp)의 실행 파일을 가리킨다.",
+      "evidence": "T1543 과 T1053 은 재시작 뒤에도 악성 프로그램을 다시 실행시키는 지속 수단을 다루며, 임시 폴더는 정상 설치 프로그램이 상주 실행 파일을 두는 곳이 아니어서 뚜렷한 의심 근거다."
+    },
+    {
+      "name": "unfamiliar_autostart_entry",
+      "condition": "처음 보거나 평소 목록에 없는 자동 실행 항목이 새로 나타났다.",
+      "evidence": "T1543 과 T1053 의 탐지는 평소 기준과 다른 새 서비스·예약 작업을 찾는 데서 출발하므로, 기준 목록에 없는 항목은 지속 수단의 뚜렷한 후보다."
+    },
+    {
+      "name": "unsigned_service_binary",
+      "condition": "자동 실행 항목의 실행 파일에 서명이 없다고 경보가 명시한다. 서명을 아직 모르거나 확인하지 못한 경우는 해당하지 않는다.",
+      "evidence": "T1543.003 은 서비스를 만들거나 고쳐 악성 실행 파일을 돌리는 기법이며, 서명 없는 실행 파일로 등록되거나 바뀐 서비스는 정상 배포와 구분되는 근거다."
+    },
+    {
+      "name": "unsigned_service_burst",
+      "condition": "서명 없는 자동 실행 등록이 같은 경보에서 2건 이상(data.count) 반복된다.",
+      "evidence": "한 번의 정상 설치와 달리 서명 없는 등록의 반복은 T1543 지속 수단을 원격에서 여러 번 시도한 형태다."
+    },
+    {
+      "name": "multi_autostart_same_binary",
+      "condition": "T1543 과 T1053 이 함께 표시되고 임시 폴더의 같은 실행 파일을 가리킨다.",
+      "evidence": "한 수단이 지워져도 남도록 지속 수단을 겹쳐 심는 것은 T1543 과 T1053 을 함께 쓰는 뚜렷한 형태다."
+    },
+    {
+      "name": "unverified_autostart_review",
+      "condition": "자동 실행 흔적은 있으나 위 패턴이 성립하지 않고 rule.level 이 5 이상이거나, 수준이 낮아도 임시·시작 폴더의 실행 파일이 보인다. 차단하지 않고 알림으로만 남긴다.",
+      "evidence": "T1543 과 T1053 은 정상 관리 작업에도 쓰이므로, 서명·친숙도 근거가 없는 항목은 지속 수단으로 확정할 수 없는 검토 대상이다."
+    }
+  ]
+}

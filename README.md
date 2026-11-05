@@ -540,3 +540,25 @@ node xdr/known-cve/respond.mjs
 ```
 
 로컬 가상 결과는 `block` 8 · `alert` 8 · `record` 8이며, 정상 이벤트 kc-17~kc-24 차단은 0건입니다. 응답 연습에서는 7개 주소 규칙을 만들고 block·alert 경보 16줄을 `xdr/alerts.log`에 추가했습니다. 이 연습은 제공 엔진의 실제 요청 탐지나 접속 차단에 연결되지 않았으며, 운영 보호나 심판 판정을 증명하지 않습니다.
+
+## 보너스 xdr-04 · 몰래 심어진 프로그램을 찾아냅니다
+
+MITRE ATT&CK T1543(서비스)과 T1053(예약 작업)을 근거로, 다시 켜도 남도록 심긴 프로그램을 다룬 가상 경보 24건을 분류하는 연습입니다. 서비스나 예약 작업이 있다는 사실만으로는 공격으로 보지 않고, 실행 파일 경로(`data.path`), 반복 횟수(`data.count`), 규칙 수준(`rule.level`), `rule.mitre`, 설명의 서명·친숙도 표현을 함께 봅니다.
+
+- `xdr/persistence/read-alerts.mjs`: 확인용 읽기 모듈. 시각·주소·계정·규칙 수준·설명만 출력하고 비밀값처럼 보이는 값은 가립니다.
+- `xdr/persistence/patterns.json`: 임시 폴더 실행 파일, 평소 목록에 없는 항목, 서명 없음, 서명 없는 등록 반복, 지속 수단 겹침, 검토 대상(알림 전용) 여섯 패턴과 근거.
+- `xdr/persistence/decide.mjs`: import·파일 입출력·외부 호출 없이 `decide(alert)`가 `{ action, confidence, reason }`을 반환합니다. 0.85 이상 `block`, 0.5 이상 `alert`, 그 아래 `record`. 경보 id·주소·계정은 판단에 쓰지 않습니다.
+- `xdr/persistence/respond.mjs`: `block` 결과만 만료 시각(근거 경보 +1시간)과 근거 경보 번호가 붙은 거부 규칙(`deny-rules.json`)으로 만들고, 같은 주소에서 `record`가 나온 경우는 제외합니다. 모든 경보가 같은 PC이고 같은 계정이 정상 경보에도 나오므로 규칙은 출발 주소로만 만듭니다. `block`·`alert`만 `xdr/alerts.log`에 추가합니다(커밋 제외). 실행할 때마다 같은 줄이 다시 쌓입니다. `src/decider.mjs`의 기존 규칙은 바꾸지 않았습니다.
+- `xdr/persistence/result.json`과 `xdr/persistence/deny-rules.json`: 가상 fixture 실행 결과와 거부 규칙입니다.
+
+다시 실행:
+
+```shell
+node xdr/persistence/read-alerts.mjs
+npm.cmd run xdr:run -- persistence
+node xdr/persistence/respond.mjs
+```
+
+로컬 가상 결과는 `block` 8 · `alert` 8 · `record` 8이며, 경보 설명으로 정상 이벤트로 본 ps-17~ps-24의 차단은 0건입니다. 저장소에 정답이 없어 이 건수가 정답인지는 확인되지 않았고, 패턴은 같은 경보를 읽고 작성했습니다. 응답 연습에서는 7개 주소 규칙을 만들고 실행 1회당 16줄을 `xdr/alerts.log`에 추가합니다. 규칙 만료 시각은 경보 시각 기준이라 현재 시계로는 이미 지났습니다. 판정기 계약(`docs/DECIDER_REQUEST.md`)에는 출발 주소 항목이 없어 거부 규칙은 실제 판정기 요청에 연결되지 않았습니다. 이 연습은 제공 엔진의 실제 탐지나 접속 차단을 증명하지 않으며, 심판 판정이 아닙니다.
+
+`npm.cmd test`는 이 저장점에서 360개 중 356개 통과, 4개 실패입니다. 실패는 `attack-check` 점검 시험(`test/attack-check.test.mjs` 3개, `test/r5.test.mjs` 1개)이며 원인은 아직 확인하지 못했습니다.
