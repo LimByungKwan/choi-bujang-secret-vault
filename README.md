@@ -520,3 +520,23 @@ node xdr/web-injection/respond.mjs
 ```
 
 로컬 가상 결과는 `block` 7 · `alert` 0 · `record` 19이며, 정상 이벤트 wi-18~wi-26 차단은 0건입니다. 응답 연습에서는 6개 주소 규칙을 만들고 block 경보 7줄을 `xdr/alerts.log`에 추가했습니다. 이 연습은 제공 엔진의 실제 웹 요청 탐지나 접속 차단에 연결되지 않았으며, 운영 보호나 심판 판정을 증명하지 않습니다.
+
+## 보너스 xdr-03 · 알려진 취약점 악용을 잡아 냅니다
+
+CVE-2021-44228(Log4Shell)과 MITRE ATT&CK T1190을 근거로 가상 경보 24건을 분류하는 연습입니다. 요청 머리글(`data.useragent`)이나 요청 인자(`data.url`)에 완전한 원격 조회 구문(`${jndi:…://…}` 형태)이 있는지와 반복 횟수(`data.count`), 규칙 수준(`rule.level`)을 함께 봅니다. CVE 이름, jndi 단어, 잘린 조각만 있는 요청은 차단하지 않고 알림으로만 남깁니다. 경보 속 조회 구문은 문서용 표기입니다.
+
+- `xdr/known-cve/read-alerts.mjs`: 확인용 읽기 모듈. 시각·주소·계정·규칙 수준·설명만 출력하고 비밀값처럼 보이는 값은 가립니다. 조회 구문이 든 url·useragent는 출력하지 않습니다.
+- `xdr/known-cve/patterns.json`: 머리글·인자·양쪽 위치 조회 구문, 반복 조회, 점검 도구 흔적 + 조회 구문, 조회 구문 없는 CVE 흔적(알림 전용) 여섯 패턴과 근거.
+- `xdr/known-cve/decide.mjs`: import·파일 입출력·외부 호출 없이 `decide(alert)`가 `{ action, confidence, reason }`을 반환합니다. 0.85 이상 `block`, 0.5 이상 `alert`, 그 아래 `record`. 주소 인코딩과 `${lower:j}` 같은 흔한 감추기를 풀어 비교합니다.
+- `xdr/known-cve/respond.mjs`: `block` 결과만 만료 시각(근거 경보 +1시간)과 근거 경보 번호가 붙은 거부 규칙(`deny-rules.json`)으로 만들고, 같은 주소에서 `record`가 나온 경우는 제외합니다. `block`·`alert`만 `xdr/alerts.log`에 추가합니다(커밋 제외). `src/decider.mjs`의 기존 규칙은 바꾸지 않았습니다.
+- `xdr/known-cve/result.json`과 `xdr/known-cve/deny-rules.json`: 가상 fixture 실행 결과와 거부 규칙입니다.
+
+다시 실행:
+
+```shell
+node xdr/known-cve/read-alerts.mjs
+npm.cmd run xdr:run -- known-cve
+node xdr/known-cve/respond.mjs
+```
+
+로컬 가상 결과는 `block` 8 · `alert` 8 · `record` 8이며, 정상 이벤트 kc-17~kc-24 차단은 0건입니다. 응답 연습에서는 7개 주소 규칙을 만들고 block·alert 경보 16줄을 `xdr/alerts.log`에 추가했습니다. 이 연습은 제공 엔진의 실제 요청 탐지나 접속 차단에 연결되지 않았으며, 운영 보호나 심판 판정을 증명하지 않습니다.

@@ -1,0 +1,38 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "known-cve",
+  "source": "CVE-2021-44228 (Apache Log4j, Log4Shell) / MITRE ATT&CK T1190 Exploit Public-Facing Application",
+  "context": "판정에는 완전한 원격 조회 구문(`${jndi:` 뒤에 `ldap://` 같은 원격 주소가 이어지는 형태)이 요청 머리글(data.useragent)이나 요청 인자(data.url)에 있는지, 같은 주소의 반복 횟수(data.count), rule.level 을 함께 사용한다. CVE 이름·jndi 단어·잘린 조각만으로는 공격으로 보지 않는다. 구문은 문서용 표기이며 다른 시스템에 넣거나 변형하지 않는다.",
+  "patterns": [
+    {
+      "name": "jndi_lookup_in_header",
+      "condition": "요청 머리글(data.useragent)에 `${jndi:` 로 시작하고 `://` 원격 주소가 이어지는 완전한 원격 조회 구문이 있다.",
+      "evidence": "CVE-2021-44228 은 Log4j 가 기록한 머리글 속 `${jndi:…}` 조회를 해석해 원격 코드를 불러오는 취약점이며, T1190 은 이런 공개 앱 취약점 악용을 다룬다."
+    },
+    {
+      "name": "jndi_lookup_in_argument",
+      "condition": "요청 인자(data.url 의 `?` 뒤 값)에 `${jndi:` 로 시작하고 `://` 원격 주소가 이어지는 완전한 원격 조회 구문이 있다.",
+      "evidence": "CVE-2021-44228 은 기록되는 모든 입력값의 `${jndi:…}` 조회로 악용되므로 주소 인자 속 조회 구문도 같은 악용 시도이며, T1190 공개 앱 악용에 해당한다."
+    },
+    {
+      "name": "jndi_lookup_multi_location",
+      "condition": "같은 경보의 요청 머리글과 요청 인자 양쪽에 완전한 원격 조회 구문이 함께 있다.",
+      "evidence": "CVE-2021-44228 악용 시도는 어느 입력이 기록될지 모르기 때문에 여러 입력 위치에 같은 조회 구문을 넣으며, T1190 공개 앱 악용 시도의 뚜렷한 형태다."
+    },
+    {
+      "name": "repeated_jndi_lookup",
+      "condition": "완전한 원격 조회 구문이 있고 같은 주소의 반복 횟수(data.count)가 2 이상이다.",
+      "evidence": "CVE-2021-44228 공개 직후 같은 출발지에서 조회 구문을 반복해 보내는 대량 악용이 관찰됐으며, T1190 은 공개 앱 취약점을 노린 반복 악용 시도를 포함한다."
+    },
+    {
+      "name": "scanner_probe_with_lookup",
+      "condition": "알려진 취약점 점검 도구의 흔적(점검용 probe 인자 등)과 완전한 원격 조회 구문이 같은 요청에 함께 있다. 점검 도구와 비슷한 이름만 있고 조회 구문이 없으면 해당하지 않는다.",
+      "evidence": "CVE-2021-44228 은 공개 직후 점검 도구로 영향받는 서버를 자동으로 찾는 데 쓰였으며, 조회 구문을 실은 점검 요청은 T1190 공개 앱 악용 시도다."
+    },
+    {
+      "name": "cve_reference_without_lookup",
+      "condition": "CVE-2021-44228 이름, jndi 단어, 라이브러리 이름, 중괄호, 잘린 조회 조각, 점검 도구와 비슷한 이름처럼 관련 흔적은 있으나 완전한 원격 조회 구문은 없고, rule.level 이 5~8 이다. 차단하지 않고 알림으로만 남긴다.",
+      "evidence": "CVE-2021-44228 악용은 완전한 `${jndi:…://…}` 조회가 기록될 때만 성립하므로 이름·조각만 있는 요청은 T1190 악용으로 확정할 수 없는 검토 대상이다."
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "known-cve",
+  "rules": [
+    {
+      "ruleId": "xdr_known_cve_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.10"
+      },
+      "expiresAt": "2026-09-27T01:14:18.000Z",
+      "alertIds": [
+        "kc-01",
+        "kc-02"
+      ]
+    },
+    {
+      "ruleId": "xdr_known_cve_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.16"
+      },
+      "expiresAt": "2026-09-27T01:17:06.000Z",
+      "alertIds": [
+        "kc-03"
+      ]
+    },
+    {
+      "ruleId": "xdr_known_cve_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.16"
+      },
+      "expiresAt": "2026-09-27T02:04:22.000Z",
+      "alertIds": [
+        "kc-04"
+      ]
+    },
+    {
+      "ruleId": "xdr_known_cve_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.24"
+      },
+      "expiresAt": "2026-09-27T02:21:09.000Z",
+      "alertIds": [
+        "kc-05"
+      ]
+    },
+    {
+      "ruleId": "xdr_known_cve_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.24"
+      },
+      "expiresAt": "2026-09-27T03:08:41.000Z",
+      "alertIds": [
+        "kc-06"
+      ]
+    },
+    {
+      "ruleId": "xdr_known_cve_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.24"
+      },
+      "expiresAt": "2026-09-27T05:06:15.000Z",
+      "alertIds": [
+        "kc-07"
+      ]
+    },
+    {
+      "ruleId": "xdr_known_cve_block",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.31"
+      },
+      "expiresAt": "2026-09-27T06:19:03.000Z",
+      "alertIds": [
+        "kc-08"
+      ]
+    }
+  ],
+  "skipped": []
+}
