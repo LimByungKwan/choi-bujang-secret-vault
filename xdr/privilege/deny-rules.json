@@ -1,0 +1,104 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "privilege",
+  "rules": [
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user01",
+        "srcip": "203.0.113.11"
+      },
+      "expiresAt": "2026-09-27T01:15:40.000Z",
+      "alertIds": [
+        "pv-01",
+        "pv-02"
+      ]
+    },
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user02",
+        "srcip": "198.51.100.11"
+      },
+      "expiresAt": "2026-09-27T02:03:12.000Z",
+      "alertIds": [
+        "pv-03"
+      ]
+    },
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user03",
+        "srcip": "192.0.2.11"
+      },
+      "expiresAt": "2026-09-27T02:19:08.000Z",
+      "alertIds": [
+        "pv-04"
+      ]
+    },
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user04",
+        "srcip": "203.0.113.17"
+      },
+      "expiresAt": "2026-09-27T03:06:21.000Z",
+      "alertIds": [
+        "pv-05"
+      ]
+    },
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user05",
+        "srcip": "198.51.100.17"
+      },
+      "expiresAt": "2026-09-27T05:08:02.000Z",
+      "alertIds": [
+        "pv-06"
+      ]
+    },
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user06",
+        "srcip": "192.0.2.17"
+      },
+      "expiresAt": "2026-09-27T06:16:29.000Z",
+      "alertIds": [
+        "pv-07"
+      ]
+    },
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user07",
+        "srcip": "203.0.113.27"
+      },
+      "expiresAt": "2026-09-27T07:02:18.000Z",
+      "alertIds": [
+        "pv-08"
+      ]
+    },
+    {
+      "ruleId": "xdr_privilege_block",
+      "effect": "deny",
+      "match": {
+        "srcuser": "user08",
+        "srcip": "198.51.100.27"
+      },
+      "expiresAt": "2026-09-27T07:33:07.000Z",
+      "alertIds": [
+        "pv-09"
+      ]
+    }
+  ],
+  "skipped": []
+}

@@ -562,3 +562,25 @@ node xdr/persistence/respond.mjs
 로컬 가상 결과는 `block` 8 · `alert` 8 · `record` 8이며, 경보 설명으로 정상 이벤트로 본 ps-17~ps-24의 차단은 0건입니다. 저장소에 정답이 없어 이 건수가 정답인지는 확인되지 않았고, 패턴은 같은 경보를 읽고 작성했습니다. 응답 연습에서는 7개 주소 규칙을 만들고 실행 1회당 16줄을 `xdr/alerts.log`에 추가합니다. 규칙 만료 시각은 경보 시각 기준이라 현재 시계로는 이미 지났습니다. 판정기 계약(`docs/DECIDER_REQUEST.md`)에는 출발 주소 항목이 없어 거부 규칙은 실제 판정기 요청에 연결되지 않았습니다. 이 연습은 제공 엔진의 실제 탐지나 접속 차단을 증명하지 않으며, 심판 판정이 아닙니다.
 
 `npm.cmd test`는 이 저장점에서 360개 중 356개 통과, 4개 실패입니다. 실패는 `attack-check` 점검 시험(`test/attack-check.test.mjs` 3개, `test/r5.test.mjs` 1개)이며 원인은 아직 확인하지 못했습니다.
+
+## 보너스 xdr-05 · 권한 가로채기를 잡아 냅니다
+
+MITRE ATT&CK T1068(권한 상승 악용)과 T1078(정상 계정 도용)을 근거로 가상 경보 26건을 분류하는 연습입니다. 관리자 그룹 추가는 설명 문구가 아니라 `data.group`이 정확히 `administrators`인지로, 업무 시간 밖 여부는 `timestamp`가 아니라 설명 문구로 판단합니다. 관리자 그룹 추가를 직접 다루는 MITRE 기법은 T1098.007이지만, 경보 표시와 과제 근거에 맞춰 T1078에 묶었습니다.
+
+- `xdr/privilege/read-alerts.mjs`: 확인용 읽기 모듈. 시각·주소·계정·규칙 수준·설명만 출력하고 비밀값처럼 보이는 값은 가립니다.
+- `xdr/privilege/patterns.json`: 관리자 그룹 추가, 추가 직후 명령, 처음 보는 주소의 권한 사용, 다른 계정 권한 사용, 여러 계정 추가, 빠졌다가 재추가, 업무 시간 밖 권한 사용, 검토 대상(알림 전용) 여덟 패턴과 근거.
+- `xdr/privilege/decide.mjs`: import·파일 입출력·외부 호출 없이 `decide(alert)`가 `{ action, confidence, reason }`을 반환합니다. 0.85 이상 `block`, 0.5 이상 `alert`, 그 아래 `record`. 취소·실패·"없습니다"·"아닙니다"가 있으면 뚜렷한 패턴으로 치지 않습니다. 경보 id·주소·계정·시각은 판단에 쓰지 않으며, admin01·svc-lab도 이름으로 예외를 두지 않습니다.
+- `xdr/privilege/respond.mjs`: `block` 결과만 만료 시각(근거 경보 +1시간)과 근거 경보 번호가 붙은 거부 규칙(`deny-rules.json`)으로 만듭니다. 차단 대상은 계정 세션(`srcuser`+`srcip`)이라 같은 계정이 평소 주소에서 접속하면 걸리지 않으며, 같은 주소에서 `record`가 나온 경우는 제외합니다. `block`·`alert`만 `xdr/alerts.log`에 추가합니다(커밋 제외). 실행할 때마다 같은 줄이 다시 쌓입니다. `src/decider.mjs`의 기존 규칙은 바꾸지 않았습니다.
+- `xdr/privilege/result.json`과 `xdr/privilege/deny-rules.json`: 가상 fixture 실행 결과와 거부 규칙입니다.
+
+다시 실행:
+
+```shell
+node xdr/privilege/read-alerts.mjs
+npm.cmd run xdr:run -- privilege
+node xdr/privilege/respond.mjs
+```
+
+로컬 가상 결과는 `block` 9 · `alert` 8 · `record` 9이며, 경보 설명으로 정상 이벤트로 본 pv-18~pv-26의 차단은 0건입니다. 저장소에 정답이 없어 이 건수가 정답인지는 확인되지 않았고, 패턴은 같은 경보를 읽고 작성했습니다. 응답 연습에서는 8개 세션 규칙을 만들고 실행 1회당 17줄을 `xdr/alerts.log`에 추가합니다. 규칙 만료 시각은 경보 시각 기준이라 현재 시계로는 이미 지났습니다. 판정기 계약(`docs/DECIDER_REQUEST.md`)에는 `srcuser`·`srcip` 항목이 없어 거부 규칙은 실제 판정기 요청에 연결되지 않았습니다. 이 연습은 제공 엔진의 실제 탐지나 접속 차단을 증명하지 않으며, 심판 판정이 아닙니다.
+
+`npm.cmd test`는 이 저장점에서도 360개 중 356개 통과, 4개 실패입니다. 실패는 xdr-04와 같은 `attack-check` 점검 시험 4개이며 원인은 아직 확인하지 못했습니다.
